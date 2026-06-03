@@ -4,7 +4,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
 
@@ -17,18 +16,6 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
-
-  // OpenAPI docs + Swagger UI at /docs (documented paths include the prefix).
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('User Service API')
-    .setDescription('User profile management for hu-knows')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document, {
-    jsonDocumentUrl: 'docs-json',
-  });
 
   // gRPC interface (alongside the HTTP API).
   app.connectMicroservice<MicroserviceOptions>(

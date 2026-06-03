@@ -2,12 +2,13 @@
 
 - **frontend** — Next.js 15 (App Router) + Tailwind CSS
 - **services/user-service** — NestJS user-service (HTTP + gRPC) backed by Supabase Postgres
+- **docs** — aggregated OpenAPI / Swagger UI for all services
 - **nginx** — reverse proxy that fronts everything on port **80**
 
 ```
 Browser ──▶ nginx :80 ──┬─▶ /                    frontend  (Next.js :3000)
                         ├─▶ /api/user-service/   user-service HTTP (:8000)
-                        └─▶ /docs                user-service Swagger UI
+                        └─▶ /docs                Swagger UI aggregator (docs)
 
 other services ──▶ user-service gRPC (:50051)   # internal, not via nginx
 ```
@@ -106,8 +107,9 @@ docker compose up --build
 
 ## API
 
-The user-service is documented interactively at **http://localhost/docs**; the raw
-OpenAPI spec is at **http://localhost/docs-json**.
+All services are documented interactively at **http://localhost/docs** — a Swagger
+UI that renders the OpenAPI spec checked in at
+[`docs/openapi.yaml`](docs/openapi.yaml).
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -116,6 +118,12 @@ OpenAPI spec is at **http://localhost/docs-json**.
 
 For `/users/me`, click **Authorize** in Swagger UI and paste a Supabase user
 access token.
+
+### Updating the docs
+
+The spec is a hand-maintained file — edit [`docs/openapi.yaml`](docs/openapi.yaml)
+to document new endpoints or services, then rebuild the `docs` image. Since it's
+not generated from the services, keep it in sync with the code when routes change.
 
 ### gRPC
 
@@ -148,16 +156,17 @@ npm run dev          # http://localhost:3000
 cd services/user-service
 npm install
 # export the variables from ../../.env first, then:
-npm run start:dev    # http://localhost:8000  (docs at /docs)
+npm run start:dev    # http://localhost:8000
 ```
 
 ## Project layout
 
 ```
 .
-├── docker-compose.yml          # base stack (frontend + user-service + nginx)
+├── docker-compose.yml          # base stack (frontend + user-service + docs + nginx)
 ├── docker-compose.dev.yml      # dev overrides (pass with -f)
 ├── .env / .env.example
+├── docs/                   # openapi.yaml + Swagger UI for all services
 ├── frontend/               # Next.js + Tailwind
 ├── nginx/                  # reverse proxy config
 └── services/

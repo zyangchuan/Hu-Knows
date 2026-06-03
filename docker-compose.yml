@@ -26,6 +26,14 @@ services:
       - "50051"
     restart: unless-stopped
 
+  docs:
+    container_name: api-docs
+    build:
+      context: ./docs
+    expose:
+      - "80"
+    restart: unless-stopped
+
   reverse-proxy:
     container_name: reverse-proxy
     build:
@@ -35,4 +43,5 @@ services:
     depends_on:
       - frontend
       - user-service
+      - docs
     restart: unless-stopped

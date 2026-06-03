@@ -1,0 +1,114 @@
+openapi: 3.0.0
+info:
+  title: hu-knows API
+  description: OpenAPI documentation for hu-knows services.
+  version: "1.0"
+
+servers:
+  - url: /
+    description: Through the reverse proxy
+
+tags:
+  - name: user-service
+    description: User profile management
+
+paths:
+  /api/user-service/health:
+    get:
+      tags: [user-service]
+      summary: Liveness check
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: user-service }
+
+  /api/user-service/users:
+    post:
+      tags: [user-service]
+      summary: Create a user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUser"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Validation error
+        "409":
+          description: supabase_user_id or email already exists
+
+  /api/user-service/users/me:
+    get:
+      tags: [user-service]
+      summary: Get the authenticated user's profile
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: The authenticated user's profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Missing or invalid Supabase JWT
+        "404":
+          description: Profile not found
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateUser:
+      type: object
+      required: [supabase_user_id, name, email]
+      properties:
+        supabase_user_id:
+          type: string
+          description: Supabase auth user id (the `sub` claim).
+          example: "11111111-1111-1111-1111-111111111111"
+        name:
+          type: string
+          example: Ada Lovelace
+        email:
+          type: string
+          format: email
+          example: ada@example.com
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 5b637d7d-a1bd-419c-afb8-d4bc2f7dc5a4
+        supabase_user_id:
+          type: string
+          example: "11111111-1111-1111-1111-111111111111"
+        name:
+          type: string
+          example: Ada Lovelace
+        email:
+          type: string
+          format: email
+          example: ada@example.com
+        created_at:
+          type: string
+          format: date-time
