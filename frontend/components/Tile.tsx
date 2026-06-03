@@ -1,0 +1,97 @@
+import { TILE_DATA, type Suit } from "@/lib/tiles";
+import { cn } from "@/lib/ui";
+import TileIcon from "./TileIcon";
+
+export type TileSize = "s" | "m" | "l" | "xl";
+
+interface TileProps {
+  tileId?: string;
+  size?: TileSize;
+  selected?: boolean;
+  glow?: boolean;
+  dim?: boolean;
+  back?: boolean;
+  onClick?: () => void;
+}
+
+// Bigger tiles than the original — readable on real iPad/phone screens.
+const SIZE: Record<TileSize, { box: string; px: number; label: string; num: string }> = {
+  s: { box: "w-[34px] h-[46px] p-[2px_1px] rounded-[3px]", px: 22, label: "hidden", num: "text-[9px]" },
+  m: { box: "w-[48px] h-[64px] p-[3px_2px] rounded-[5px]", px: 30, label: "text-[8px]", num: "text-[11px]" },
+  l: { box: "w-[66px] h-[88px] p-[5px_3px] rounded-[6px]", px: 42, label: "text-[11px]", num: "text-[14px]" },
+  xl: { box: "w-[104px] h-[140px] p-[10px_6px] rounded-[9px] border-b-[3px]", px: 72, label: "text-[14px]", num: "text-[20px]" },
+};
+
+const SUIT: Record<Suit, { bg: string; ink: string }> = {
+  circles: { bg: "bg-[linear-gradient(180deg,#faf0d0_0%,#f5e9c8_55%,#e6d6a8_100%)]", ink: "text-suit-blue" },
+  bamboo: { bg: "bg-[linear-gradient(180deg,#faf0d0_0%,#f5e9c8_55%,#e6d6a8_100%)]", ink: "text-suit-green" },
+  wind: { bg: "bg-[linear-gradient(180deg,#f6e0d4_0%,#efd0bc_55%,#e2bca0_100%)]", ink: "text-suit-wind" },
+  dragon: { bg: "bg-[linear-gradient(180deg,#fde9a8_0%,#f8db86_55%,#e8c660_100%)]", ink: "text-amber" },
+};
+
+const BASE =
+  "relative inline-flex flex-col items-center justify-center select-none shrink-0 text-center text-ink " +
+  "border border-bevel-dk border-b-2 border-r-[1.5px] " +
+  "shadow-[0_1px_2px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.5)] " +
+  "transition-[transform,box-shadow] duration-150";
+
+export default function Tile({ tileId, size = "m", selected, glow, dim, back, onClick }: TileProps) {
+  const sz = SIZE[size];
+
+  if (back) {
+    return (
+      <div
+        title="Hidden tile"
+        onClick={onClick}
+        className={cn(
+          BASE,
+          sz.box,
+          "bg-[repeating-linear-gradient(45deg,#2f6f4d_0_4px,#1f5a3f_4px_8px)] border-[#143b27] border-b-[#0d2a1c]",
+          glow && "animate-tile-pulse [box-shadow:0_0_0_2px_var(--color-gold),0_0_14px_rgba(251,191,36,0.35)]",
+          dim && "opacity-40",
+          onClick && "cursor-pointer",
+        )}
+      />
+    );
+  }
+
+  const baseId = typeof tileId === "string" ? tileId.split(":")[0] : tileId;
+  const data = baseId ? TILE_DATA[baseId] : undefined;
+  if (!data || !baseId) return null;
+  const suit = SUIT[data.suit];
+
+  return (
+    <div
+      title={`${data.label} — ${data.tip}`}
+      onClick={onClick}
+      className={cn(
+        BASE,
+        sz.box,
+        suit.bg,
+        onClick && "cursor-pointer hover:-translate-y-1",
+        selected && "-translate-y-2 shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.5)]",
+        selected && onClick && "hover:-translate-y-2.5",
+        glow &&
+          "animate-tile-pulse [box-shadow:0_0_0_2px_var(--color-gold),0_0_14px_rgba(251,191,36,0.35),0_1px_2px_rgba(0,0,0,0.22)]",
+        dim && "opacity-40",
+      )}
+    >
+      {data.num !== null && (
+        <span className={cn("absolute top-[2px] left-[4px] font-bold opacity-60 font-num", sz.num, suit.ink)}>
+          {data.num}
+        </span>
+      )}
+      <TileIcon base={baseId} emoji={data.icon} px={sz.px} className={suit.ink} />
+      {sz.label !== "hidden" && (
+        <span
+          className={cn(
+            "font-bold uppercase tracking-[0.3px] leading-[1.05] mt-1 overflow-hidden text-ellipsis whitespace-nowrap max-w-full px-0.5",
+            sz.label,
+          )}
+        >
+          {data.label}
+        </span>
+      )}
+    </div>
+  );
+}
