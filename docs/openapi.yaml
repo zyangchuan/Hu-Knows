@@ -11,8 +11,59 @@ servers:
 tags:
   - name: user-service
     description: User profile management
+  - name: via-log-service
+    description: Via log service
+  - name: game-service
+    description: >-
+      Game service. Real-time API is a Socket.IO WebSocket gateway at
+      /api/game-service/socket.io (not describable in OpenAPI); only the HTTP
+      health check is listed here.
 
 paths:
+  /api/via-log-service:
+    get:
+      tags: [via-log-service]
+      summary: Hello world
+      responses:
+        "200":
+          description: Greeting
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Hello World! }
+
+  /api/via-log-service/health:
+    get:
+      tags: [via-log-service]
+      summary: Liveness check
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: via-log-service }
+
+  /api/game-service/health:
+    get:
+      tags: [game-service]
+      summary: Liveness check
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: game-service }
+
   /api/user-service/health:
     get:
       tags: [user-service]

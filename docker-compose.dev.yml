@@ -30,3 +30,17 @@ services:
       - ./services/user-service/src:/app/src
       - ./services/user-service/proto:/app/proto
       - /app/node_modules
+
+  game-service:
+    build:
+      target: dev
+    volumes:
+      - ./services/game-service/src:/app/src
+      - /app/node_modules
+
+  via-log-service:
+    build:
+      target: dev
+    volumes:
+      - ./services/via-log-service/src:/app/src
+      - /app/node_modules

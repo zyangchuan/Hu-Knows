@@ -26,6 +26,22 @@ services:
       - "50051"
     restart: unless-stopped
 
+  game-service:
+    container_name: game-service
+    build:
+      context: ./services/game-service
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  via-log-service:
+    container_name: via-log-service
+    build:
+      context: ./services/via-log-service
+    expose:
+      - "8000"
+    restart: unless-stopped
+
   docs:
     container_name: api-docs
     build:
@@ -43,5 +59,7 @@ services:
     depends_on:
       - frontend
       - user-service
+      - game-service
+      - via-log-service
       - docs
     restart: unless-stopped
