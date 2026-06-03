@@ -1,0 +1,38 @@
+# Base stack (production-oriented defaults).
+#
+# For local development, layer docker-compose.dev.yml on top (dev build targets,
+# source bind-mounts, watch mode):
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Run this base config alone for a prod-like build:
+#   docker compose up --build
+services:
+  frontend:
+    container_name: frontend
+    build:
+      context: ./frontend
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  user-service:
+    container_name: user-service
+    build:
+      context: ./services/user-service
+    env_file:
+      - ./.env
+    expose:
+      - "8000"
+      - "50051"
+    restart: unless-stopped
+
+  reverse-proxy:
+    container_name: reverse-proxy
+    build:
+      context: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - user-service
+    restart: unless-stopped

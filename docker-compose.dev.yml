@@ -1,0 +1,32 @@
+# Development overrides for docker-compose.yml. Unlike a *.override.yml file,
+# this is NOT merged automatically — pass it explicitly:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+# Builds the `dev` image targets, bind-mounts source for hot reloading, and
+# publishes the frontend dev server for direct access.
+services:
+  frontend:
+    build:
+      target: dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Bind-mount source for hot reloading...
+      - ./frontend:/app
+      # ...but keep container-owned node_modules and .next (anonymous volumes
+      # shadow the host mounts so they aren't clobbered by the bind mount).
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      # Enable file-watching polling for reliable HMR inside containers.
+      - WATCHPACK_POLLING=true
+
+  user-service:
+    build:
+      target: dev
+    volumes:
+      # Bind-mount source for watch-mode reloads; keep container node_modules.
+      - ./services/user-service/src:/app/src
+      - ./services/user-service/proto:/app/proto
+      - /app/node_modules
