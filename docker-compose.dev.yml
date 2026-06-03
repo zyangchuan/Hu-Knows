@@ -25,6 +25,8 @@ services:
   user-service:
     build:
       target: dev
+    env_file:
+      - ./.env.dev
     volumes:
       # Bind-mount source for watch-mode reloads; keep container node_modules.
       - ./services/user-service/src:/app/src

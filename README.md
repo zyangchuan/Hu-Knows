@@ -21,11 +21,11 @@ other services ──▶ user-service gRPC (:50051)   # internal, not via nginx
 
 ## 1. Configure environment
 
-Supabase config lives in `.env` at the repo root (consumed by `user-service`).
+Supabase config lives in `.env.dev` at the repo root (consumed by `user-service`).
 Copy the example and fill in your project's values:
 
 ```bash
-cp .env.example .env
+cp .env.dev.example .env.dev
 ```
 
 Fill these from your Supabase dashboard:
@@ -57,8 +57,8 @@ postgresql://postgres.<project-ref>:<password>@aws-<n>-<region>.pooler.supabase.
 **JWT verification.** User access tokens are verified with the project's shared
 JWT secret (`SUPABASE_JWT_SECRET`, HS256).
 
-> `.env` holds real secrets — keep it out of version control. Commit only
-> `.env.example`.
+> `.env.dev` holds real secrets — keep it out of version control. Commit only
+> `.env.dev.example`.
 
 ## 2. Run the stack
 
@@ -150,12 +150,12 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
-**user-service** (needs a reachable Postgres and the env vars from `.env`)
+**user-service** (needs a reachable Postgres and the env vars from `.env.dev`)
 
 ```bash
 cd services/user-service
 npm install
-# export the variables from ../../.env first, then:
+# export the variables from ../../.env.dev first, then:
 npm run start:dev    # http://localhost:8000
 ```
 
@@ -165,7 +165,7 @@ npm run start:dev    # http://localhost:8000
 .
 ├── docker-compose.yml          # base stack (frontend + user-service + docs + nginx)
 ├── docker-compose.dev.yml      # dev overrides (pass with -f)
-├── .env / .env.example
+├── .env.dev / .env.dev.example
 ├── docs/                   # openapi.yaml + Swagger UI for all services
 ├── frontend/               # Next.js + Tailwind
 ├── nginx/                  # reverse proxy config
