@@ -15,4 +15,8 @@ export default () => ({
     jwtSecret: process.env.SUPABASE_JWT_SECRET ?? '',
     jwtAudience: process.env.SUPABASE_JWT_AUDIENCE ?? 'authenticated',
   },
+  auth: {
+    // Name of the cookie carrying the JWT access token.
+    cookieName: process.env.AUTH_COOKIE_NAME ?? 'access_token',
+  },
 });

@@ -21,7 +21,7 @@ export class SupabaseJwtService {
     if (secret) {
       this.secret = new TextEncoder().encode(secret);
     }
-    this.audience = config.get<string>('supabase.jwtAudience') ?? 'authenticated';
+    this.audience = config.getOrThrow<string>('supabase.jwtAudience');
   }
 
   async verify(token: string): Promise<JWTPayload> {

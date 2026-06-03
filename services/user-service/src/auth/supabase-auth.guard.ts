@@ -4,28 +4,35 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import { SupabaseJwtService } from './supabase-jwt.service';
 
 /**
- * Route guard that requires a valid Supabase JWT. On success it attaches the
- * authenticated user to `request.user` for the `@CurrentUser()` decorator.
+ * Route guard that requires a valid Supabase JWT, read from the auth cookie
+ * (configurable via AUTH_COOKIE_NAME). On success it attaches the authenticated
+ * user to `request.user` for the `@CurrentUser()` decorator.
  */
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
-  constructor(private readonly jwtService: SupabaseJwtService) {}
+  private readonly cookieName: string;
+
+  constructor(
+    private readonly jwtService: SupabaseJwtService,
+    config: ConfigService,
+  ) {
+    this.cookieName = config.getOrThrow<string>('auth.cookieName');
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const header: string | undefined = request.headers?.authorization;
+    const token: string | undefined = request.cookies?.[this.cookieName];
 
-    if (!header || !header.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing or malformed Authorization header');
+    if (!token) {
+      throw new UnauthorizedException('Missing authentication cookie');
     }
 
-    const token = header.slice('Bearer '.length).trim();
     const claims = await this.jwtService.verify(token);
-
     if (!claims.sub) {
       throw new UnauthorizedException('Token is missing the `sub` claim');
     }

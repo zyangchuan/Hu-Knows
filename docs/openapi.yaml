@@ -105,8 +105,9 @@ paths:
     get:
       tags: [user-service]
       summary: Get the authenticated user's profile
+      description: Authenticates via the `access_token` cookie.
       security:
-        - bearer: []
+        - cookieAuth: []
       responses:
         "200":
           description: The authenticated user's profile
@@ -121,10 +122,10 @@ paths:
 
 components:
   securitySchemes:
-    bearer:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
 
   schemas:
     CreateUser:

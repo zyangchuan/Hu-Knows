@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from './app.module';
 
@@ -13,6 +14,7 @@ async function bootstrap() {
 
   // Mirrors the previous FastAPI route prefix.
   app.setGlobalPrefix('api/user-service');
+  app.use(cookieParser());
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
@@ -33,7 +35,7 @@ async function bootstrap() {
   );
 
   await app.startAllMicroservices();
-  await app.listen(config.get<number>('port') ?? 8000, '0.0.0.0');
+  await app.listen(config.getOrThrow<number>('port'), '0.0.0.0');
 }
 
 bootstrap();
