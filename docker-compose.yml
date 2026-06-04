@@ -11,6 +11,8 @@ services:
     container_name: frontend
     build:
       context: ./frontend
+    # Next.js standalone server (output: "standalone").
+    command: node server.js
     expose:
       - "3000"
     restart: unless-stopped

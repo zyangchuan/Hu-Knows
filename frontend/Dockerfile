@@ -19,7 +19,7 @@ ENV NODE_ENV=development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 EXPOSE 3000
-CMD ["npm", "run", "dev"]
+# The start command is provided by the docker-compose files.
 
 # ---------- Builder (production) ----------
 FROM base AS builder
@@ -44,4 +44,4 @@ USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-CMD ["node", "server.js"]
+# The start command is provided by the docker-compose files.

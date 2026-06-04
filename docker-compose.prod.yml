@@ -1,0 +1,23 @@
+# Production overrides for docker-compose.yml. Like the dev file, this is NOT
+# merged automatically — pass it explicitly:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+#
+# Pins the production image targets and loads secrets from .env.prod.
+services:
+  frontend:
+    build:
+      target: runner
+
+  user-service:
+    build:
+      target: runner
+    env_file:
+      - ./.env.prod
+
+  game-service:
+    build:
+      target: runner
+
+  via-log-service:
+    build:
+      target: runner

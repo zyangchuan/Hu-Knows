@@ -8,6 +8,7 @@ services:
   frontend:
     build:
       target: dev
+    command: npm run dev
     ports:
       - "3000:3000"
     volumes:
