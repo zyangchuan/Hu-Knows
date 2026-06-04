@@ -1,0 +1,30 @@
+{
+  "template": "Flat 2D minimalist vector icon, single centred symbol, {subject}, bold thick uniform outline strokes, {color} line art on a pure solid white background, no shading, no gradients, no shadows, no texture, no wood grain, no 3D, not a photograph, no background scene, simple clean icon design, thick bold lines, high contrast, centered with even margin on all sides, flat lay, looks like a clean app icon.",
+  "tiles": {
+    "A1": { "color": "deep blue", "subject": "a closed padlock overlapping a small ID card" },
+    "A2": { "color": "deep blue", "subject": "an ID card with a grabbing hand reaching for it" },
+    "A3": { "color": "deep blue", "subject": "a bold question mark inside a shield outline" },
+    "A4": { "color": "deep blue", "subject": "a police peaked cap with a small crack through it" },
+    "A5": { "color": "deep blue", "subject": "a phone handset with a circular return arrow around it" },
+    "A6": { "color": "deep blue", "subject": "a faceless silhouette head with a question mark where the face is" },
+    "A7": { "color": "deep blue", "subject": "an open palm raised in a stop gesture inside a circle" },
+    "A8": { "color": "deep blue", "subject": "an upward trending arrow chart with a small warning crack" },
+    "A9": { "color": "deep blue", "subject": "a banknote with a large prohibition slash across it" },
+    "B1": { "color": "green", "subject": "a simple human torso outline with a glowing dot at the stomach" },
+    "B2": { "color": "green", "subject": "an alarm clock with motion lines" },
+    "B3": { "color": "green", "subject": "a crescent moon over a calm pillow" },
+    "B4": { "color": "green", "subject": "a trophy with a small crack and a question mark" },
+    "B5": { "color": "green", "subject": "an empty ballot entry box with a slash through it" },
+    "B6": { "color": "green", "subject": "a heart with a crack down the middle" },
+    "B7": { "color": "green", "subject": "two simple face silhouettes facing each other" },
+    "B8": { "color": "green", "subject": "a finger held over closed lips" },
+    "B9": { "color": "green", "subject": "a speech bubble with a small heart inside" },
+    "WE": { "color": "vermillion red", "subject": "a government official peaked cap with a warning crack" },
+    "WS": { "color": "vermillion red", "subject": "a fish hook piercing through an envelope" },
+    "WW": { "color": "vermillion red", "subject": "a hollow empty gift box drawn with a dotted outline" },
+    "WN": { "color": "vermillion red", "subject": "a smartphone showing a chat bubble with a small impostor mask" },
+    "DR": { "color": "red and gold", "subject": "a bold shield with a downward install plus-arrow" },
+    "DG": { "color": "green and gold", "subject": "a magnifying glass over a checkmark" },
+    "DW": { "color": "grey and gold", "subject": "a clean megaphone" }
+  }
+}

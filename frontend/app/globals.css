@@ -1,24 +1,120 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ─── Design tokens (exposed as Tailwind utilities, e.g. bg-felt, text-gold) ── */
+@theme {
+  --color-felt: #1f3520;
+  --color-felt-deep: #0a1f0c;
+  --color-felt-warm: #2a4628;
+  --color-cream: #f5e9c8;
+  --color-cream-hi: #faf0d0;
+  --color-cream-lo: #e6d6a8;
+  --color-bevel: #c4a572;
+  --color-bevel-dk: #8a6a3a;
+  --color-gold: #fbbf24;
+  --color-gold-deep: #e8a800;
+  --color-sand: #d4b483;
+  --color-ink: #2a1f15;
+  --color-suit-blue: #185fa5;
+  --color-suit-green: #1d9e75;
+  --color-suit-wind: #8b2c1a;
+  --color-amber: #8b5a18;
+  --color-scam-red: #b91c1c;
+
+  /* Named animations → animate-tile-pulse, animate-name-pulse, etc. */
+  --animate-tile-pulse: tile-pulse 1.5s ease infinite;
+  --animate-name-pulse: name-pulse 1s ease infinite;
+  --animate-pulse-red: pulse-red 1.8s ease infinite;
+  --animate-hu-bounce: hu-bounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-slide-down: slide-down 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-slide-up: slide-up 0.35s ease-in both;
+  --animate-fade-in: fade-in 0.4s ease;
+  --animate-spin-fast: spin 0.8s linear infinite;
+
+  /* Claimed meld bursts at centre, then flies toward the claimer's seat. */
+  --animate-claim-top: claim-top 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-claim-bottom: claim-bottom 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-claim-left: claim-left 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-claim-right: claim-right 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop-in: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@keyframes tile-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--color-gold), 0 0 14px rgba(251, 191, 36, 0.35); }
+  50%      { box-shadow: 0 0 0 3px var(--color-gold), 0 0 24px rgba(251, 191, 36, 0.55); }
+}
+@keyframes name-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(251, 191, 36, 0); }
+}
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+}
+@keyframes hu-bounce {
+  from { transform: scale(0.3); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+@keyframes slide-up {
+  from { transform: translateY(0);     opacity: 1; }
+  to   { transform: translateY(-110%); opacity: 0; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pop-in {
+  from { transform: scale(0.4); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+/* Centre-burst → fly to seat. Travel uses viewport units so it reaches the edge
+   regardless of element size; the element is centred by a flex overlay. */
+@keyframes claim-top {
+  0%   { transform: scale(0.5); opacity: 0; }
+  18%  { transform: scale(1.18); opacity: 1; }
+  58%  { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-40vh) scale(0.5); opacity: 0; }
+}
+@keyframes claim-bottom {
+  0%   { transform: scale(0.5); opacity: 0; }
+  18%  { transform: scale(1.18); opacity: 1; }
+  58%  { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(40vh) scale(0.5); opacity: 0; }
+}
+@keyframes claim-left {
+  0%   { transform: scale(0.5); opacity: 0; }
+  18%  { transform: scale(1.18); opacity: 1; }
+  58%  { transform: translateX(0) scale(1); opacity: 1; }
+  100% { transform: translateX(-44vw) scale(0.5); opacity: 0; }
+}
+@keyframes claim-right {
+  0%   { transform: scale(0.5); opacity: 0; }
+  18%  { transform: scale(1.18); opacity: 1; }
+  58%  { transform: translateX(0) scale(1); opacity: 1; }
+  100% { transform: translateX(44vw) scale(0.5); opacity: 0; }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+/* ─── Base ──────────────────────────────────────────────────────────────────── */
+html, body {
+  min-height: 100vh;
+  background: var(--color-felt-deep);
+  color: var(--color-cream);
+  font-family: "Inter", system-ui, sans-serif;
+  overscroll-behavior: none;
 }
+
+/* Fonts used inside tiles (referenced by a couple of spans). */
+.font-hanzi { font-family: "Noto Sans SC", serif; }
+.font-num   { font-family: "JetBrains Mono", monospace; }
+
+/* Thin scrollbars to match the original look. */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(212, 180, 131, 0.25); border-radius: 2px; }
