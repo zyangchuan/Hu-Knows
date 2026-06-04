@@ -171,3 +171,59 @@ export function sortHand(tileInstances: TileInstance[]): TileInstance[] {
     return ba.localeCompare(bb);
   });
 }
+
+// ── Decompose a winning concealed hand into its sets + pair (for the win card) ─
+export function decomposeWin(tiles: TileInstance[], meldCount = 0): { pair: string[]; sets: Meld[] } | null {
+  const setsNeeded = 3 - meldCount;
+  if (tiles.length !== setsNeeded * 3 + 2) return null;
+  return findWinPattern(tiles.map(baseOf), setsNeeded);
+}
+
+function findWinPattern(tileBases: string[], setsNeeded: number): { pair: string[]; sets: Meld[] } | null {
+  const tiles = [...tileBases].sort();
+  const unique = [...new Set(tiles)];
+  for (const t of unique) {
+    const rest = [...tiles];
+    const i1 = rest.indexOf(t);
+    rest.splice(i1, 1);
+    const i2 = rest.indexOf(t);
+    if (i2 === -1) continue;
+    rest.splice(i2, 1);
+    const sets = findSets(rest, setsNeeded);
+    if (sets !== null) return { pair: [t, t], sets };
+  }
+  return null;
+}
+
+function findSets(tiles: string[], n: number): Meld[] | null {
+  if (n === 0) return tiles.length === 0 ? [] : null;
+  const sorted = [...tiles].sort();
+  if (sorted.length === 0) return null;
+  const t = sorted[0];
+
+  if (sorted.filter((x) => x === t).length >= 3) {
+    const r = [...sorted];
+    r.splice(r.indexOf(t), 1);
+    r.splice(r.indexOf(t), 1);
+    r.splice(r.indexOf(t), 1);
+    const rest = findSets(r, n - 1);
+    if (rest !== null) return [{ type: "pung", tiles: [t, t, t] }, ...rest];
+  }
+
+  if (t[0] === "A" || t[0] === "B") {
+    const suit = t[0];
+    const num = parseInt(t[1]);
+    const t2 = `${suit}${num + 1}`;
+    const t3 = `${suit}${num + 2}`;
+    const r = [...sorted];
+    if (r.indexOf(t) !== -1 && r.indexOf(t2) !== -1 && r.indexOf(t3) !== -1) {
+      r.splice(r.indexOf(t3), 1);
+      r.splice(r.indexOf(t2), 1);
+      r.splice(r.indexOf(t), 1);
+      const rest = findSets(r, n - 1);
+      if (rest !== null) return [{ type: "chi", tiles: [t, t2, t3] }, ...rest];
+    }
+  }
+
+  return null;
+}

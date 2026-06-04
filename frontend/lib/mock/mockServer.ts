@@ -5,6 +5,7 @@
 // game-service later — the GameClient transport is the only seam that changes.
 import { GameEngine, type EngineSeat } from "./engine";
 import { botClaim, botTurn } from "./bot";
+import { buildLesson } from "../education";
 import type { ClientMessage, ServerMessage, SeatInfo } from "../types";
 
 const CHANNEL = "hu-knows-mock";
@@ -56,6 +57,10 @@ class Room {
   engine: GameEngine | null = null;
   started = false;
   ipadDeleteTimer: ReturnType<typeof setTimeout> | null = null;
+  // Lessons shown this hand (dedup) + the active learning-pause state.
+  private shownLessons = new Set<string>();
+  private pauseTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingResume: (() => void) | null = null;
 
   constructor(
     code: string,
@@ -102,7 +107,11 @@ class Room {
     const engine = new GameEngine(engineSeats);
     this.engine = engine;
 
+    // Freeze play on a new Pung/Chi so everyone can read the lesson.
+    engine.pauseHook = (info, resume) => this.handleLesson(info, resume);
+
     engine.on("hand_started", ({ dealerSeat, handNumber, hands }) => {
+      this.shownLessons.clear(); // "new move for the round" resets each hand
       this.broadcastAll({ type: "GAME_STARTED", dealerSeat, handNumber });
       for (const s of this.seats) {
         if (!s.isBot) this.sendToSeat(s.seat, { type: "DEAL", hand: hands[s.seat] });
@@ -146,7 +155,6 @@ class Room {
 
     engine.on("claim_resolved", (data) => {
       this.broadcastAll({ type: "CLAIM_RESOLVED", ...data });
-      if (data.dna) this.broadcastAll({ type: "SCAM_CARD", ...data.dna });
       this.broadcastState();
     });
 
@@ -160,6 +168,36 @@ class Room {
 
     engine.startHand();
     return { ok: true };
+  }
+
+  // ── Educational learning-pause ────────────────────────────────────────────
+  private handleLesson(
+    info: { claimType: "PUNG" | "CHI"; meld: string[]; winnerSeat: number },
+    resume: () => void,
+  ): void {
+    const key = info.claimType === "PUNG" ? `P:${info.meld[0]}` : `C:${[...info.meld].sort().join("-")}`;
+    if (this.shownLessons.has(key)) {
+      resume(); // already taught this round — don't pause again
+      return;
+    }
+    this.shownLessons.add(key);
+    this.pendingResume = resume;
+    const until = Date.now() + 10000;
+    this.broadcastAll({ type: "LESSON", lesson: buildLesson(info.claimType, info.meld), until });
+    if (this.pauseTimer) clearTimeout(this.pauseTimer);
+    this.pauseTimer = setTimeout(() => this.resumeFromLesson(), 10000);
+  }
+
+  private resumeFromLesson(): void {
+    if (this.pauseTimer) {
+      clearTimeout(this.pauseTimer);
+      this.pauseTimer = null;
+    }
+    if (!this.pendingResume) return;
+    const r = this.pendingResume;
+    this.pendingResume = null;
+    this.broadcastAll({ type: "RESUME_GAME" });
+    r();
   }
 
   handle(fromClientId: string, msg: ClientMessage): void {
@@ -191,6 +229,9 @@ class Room {
         if (r?.error) this.send(fromClientId, { type: "ERROR", message: r.error });
         break;
       }
+      case "RESUME":
+        this.resumeFromLesson(); // override button on the iPad
+        break;
       default:
         break;
     }

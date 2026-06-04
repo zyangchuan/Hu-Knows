@@ -16,10 +16,10 @@ interface TileProps {
 
 // Bigger tiles than the original — readable on real iPad/phone screens.
 const SIZE: Record<TileSize, { box: string; px: number; label: string; num: string }> = {
-  s: { box: "w-[34px] h-[46px] p-[2px_1px] rounded-[3px]", px: 22, label: "hidden", num: "text-[9px]" },
-  m: { box: "w-[48px] h-[64px] p-[3px_2px] rounded-[5px]", px: 30, label: "text-[8px]", num: "text-[11px]" },
-  l: { box: "w-[66px] h-[88px] p-[5px_3px] rounded-[6px]", px: 42, label: "text-[11px]", num: "text-[14px]" },
-  xl: { box: "w-[104px] h-[140px] p-[10px_6px] rounded-[9px] border-b-[3px]", px: 72, label: "text-[14px]", num: "text-[20px]" },
+  s: { box: "w-[36px] h-[48px] p-[2px_1px] rounded-[4px]", px: 24, label: "hidden", num: "text-[10px]" },
+  m: { box: "w-[52px] h-[70px] p-[3px_2px] rounded-[5px]", px: 30, label: "text-[8px]", num: "text-[12px]" },
+  l: { box: "w-[72px] h-[96px] p-[5px_4px] rounded-[7px]", px: 44, label: "text-[11px]", num: "text-[15px]" },
+  xl: { box: "w-[108px] h-[146px] p-[10px_7px] rounded-[10px] border-b-[3px]", px: 74, label: "text-[14px]", num: "text-[22px]" },
 };
 
 const SUIT: Record<Suit, { bg: string; ink: string }> = {
@@ -76,16 +76,22 @@ export default function Tile({ tileId, size = "m", selected, glow, dim, back, on
         dim && "opacity-40",
       )}
     >
-      {data.num !== null && (
-        <span className={cn("absolute top-[2px] left-[4px] font-bold opacity-60 font-num", sz.num, suit.ink)}>
-          {data.num}
-        </span>
-      )}
+      {/* Consistent corner marker: number for suits, the character for honours. */}
+      <span
+        className={cn(
+          "absolute top-[2px] left-[4px] font-bold opacity-65",
+          data.num !== null ? "font-num" : "font-hanzi",
+          sz.num,
+          suit.ink,
+        )}
+      >
+        {data.num !== null ? data.num : data.hanzi}
+      </span>
       <TileIcon base={baseId} emoji={data.icon} px={sz.px} className={suit.ink} />
       {sz.label !== "hidden" && (
         <span
           className={cn(
-            "font-bold uppercase tracking-[0.3px] leading-[1.05] mt-1 overflow-hidden text-ellipsis whitespace-nowrap max-w-full px-0.5",
+            "font-bold uppercase tracking-[0.2px] leading-[1.0] mt-0.5 max-w-full px-0.5 text-center line-clamp-2 [overflow-wrap:anywhere]",
             sz.label,
           )}
         >

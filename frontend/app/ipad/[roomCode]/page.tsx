@@ -6,8 +6,10 @@ import SeatBlock from "@/components/SeatBlock";
 import DiscardPool from "@/components/DiscardPool";
 import ScamCard from "@/components/ScamCard";
 import Tile from "@/components/Tile";
-import { SEAT_NAMES, type DnaCard } from "@/lib/tiles";
-import type { GameState, ServerMessage, TableSummaryRow } from "@/lib/types";
+import { SEAT_NAMES } from "@/lib/tiles";
+import { decomposeWin } from "@/lib/rules";
+import type { Lesson } from "@/lib/education";
+import type { GameState, Meld, ServerMessage, TableSummaryRow } from "@/lib/types";
 import { btnGold, cn } from "@/lib/ui";
 
 // Which screen edge each seat sits at (seat 0 East / 1 South / 2 West / 3 North).
@@ -33,9 +35,9 @@ export default function IPadView() {
   const router = useRouter();
 
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [scamCard, setScamCard] = useState<DnaCard | null>(null);
-  const [scamTiles, setScamTiles] = useState<string[]>([]);
-  const [huWinner, setHuWinner] = useState<{ pairName: string; hand: string[] } | null>(null);
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [lessonUntil, setLessonUntil] = useState(0);
+  const [huWinner, setHuWinner] = useState<{ pairName: string; hand: string[]; melds: Meld[] } | null>(null);
   const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[] } | null>(null);
   const [burst, setBurst] = useState<ClaimBurst | null>(null);
   const burstId = useRef(0);
@@ -52,7 +54,7 @@ export default function IPadView() {
       case "GAME_STARTED":
         setHuWinner(null);
         setGameOver(null);
-        setScamCard(null);
+        setLesson(null);
         break;
       case "STATE_UPDATE":
         setGameState({ ...msg });
@@ -60,18 +62,17 @@ export default function IPadView() {
       case "CLAIM_RESOLVED":
         burstId.current += 1;
         setBurst({ id: burstId.current, seat: msg.winnerSeat, claimType: msg.claimType, tiles: msg.meld });
-        if (msg.dna) {
-          setScamCard(msg.dna);
-          setScamTiles(msg.meld || []);
-        }
         break;
-      case "SCAM_CARD":
-        setScamCard({ title: msg.title, stat: msg.stat, tool: msg.tool, src: msg.src });
-        setScamTiles([]);
+      case "LESSON":
+        setLesson(msg.lesson);
+        setLessonUntil(msg.until);
+        break;
+      case "RESUME_GAME":
+        setLesson(null);
         break;
       case "HU":
-        setHuWinner({ pairName: msg.pairName, hand: msg.hand });
-        setTimeout(() => setHuWinner(null), 5500);
+        setHuWinner({ pairName: msg.pairName, hand: msg.hand, melds: msg.melds });
+        setTimeout(() => setHuWinner(null), 9000);
         break;
       case "GAME_OVER":
         setGameOver({ tableSummary: msg.tableSummary });
@@ -136,6 +137,7 @@ export default function IPadView() {
   const east = getSeat(0);
   const west = getSeat(2);
   const isPlaying = !!gameState && gameState.phase !== "idle" && gameState.phase !== "lobby";
+  const winDecomp = huWinner ? decomposeWin(huWinner.hand, huWinner.melds.length) : null;
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-[radial-gradient(ellipse_at_center,var(--color-felt-warm)_0%,var(--color-felt)_55%,var(--color-felt-deep)_100%)]">
@@ -147,20 +149,37 @@ export default function IPadView() {
       />
 
       {huWinner && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 z-[200] animate-fade-in">
-          <div className="text-[5rem] font-black text-gold drop-shadow-[0_0_40px_rgba(251,191,36,0.6)] animate-hu-bounce">胡!</div>
-          <div className="text-2xl text-cream mt-2 font-bold">{huWinner.pairName} wins!</div>
-          <div className="mt-4 flex gap-1 flex-wrap justify-center max-w-[92vw]">
-            {huWinner.hand.slice(0, 11).map((t, i) => (
-              <div key={i} className="animate-pop-in" style={{ animationDelay: `${i * 55}ms` }}>
-                <Tile tileId={t} size="m" />
-              </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 z-[200] animate-fade-in px-4">
+          <div className="text-[4.5rem] font-black text-gold drop-shadow-[0_0_40px_rgba(251,191,36,0.6)] animate-hu-bounce">胡!</div>
+          <div className="text-2xl text-cream mt-1 font-bold">{huWinner.pairName} wins!</div>
+          <div className="text-sand text-sm mt-1">Winning hand — 3 sets + a pair</div>
+          <div className="mt-5 flex gap-3 flex-wrap justify-center items-end max-w-[94vw]">
+            {huWinner.melds.map((m, i) => (
+              <WinGroup key={`claimed-${i}`} label="Claimed" delay={i}>
+                {m.tiles.map((t, j) => <Tile key={j} tileId={t} size="m" />)}
+              </WinGroup>
             ))}
+            {winDecomp?.sets.map((m, i) => (
+              <WinGroup key={`set-${i}`} label={m.type === "pung" ? "Pung" : "Chi"} delay={huWinner.melds.length + i}>
+                {m.tiles.map((t, j) => <Tile key={j} tileId={t} size="m" />)}
+              </WinGroup>
+            ))}
+            {winDecomp && (
+              <WinGroup label="Pair" gold delay={huWinner.melds.length + winDecomp.sets.length}>
+                {winDecomp.pair.map((t, j) => <Tile key={j} tileId={t} size="m" />)}
+              </WinGroup>
+            )}
+            {!winDecomp &&
+              huWinner.hand.map((t, i) => (
+                <div key={i} className="animate-pop-in" style={{ animationDelay: `${i * 55}ms` }}>
+                  <Tile tileId={t} size="m" />
+                </div>
+              ))}
           </div>
         </div>
       )}
 
-      {scamCard && <ScamCard card={scamCard} tiles={scamTiles} onDone={() => { setScamCard(null); setScamTiles([]); }} />}
+      {lesson && <ScamCard lesson={lesson} until={lessonUntil} onOverride={() => send({ type: "RESUME" })} />}
 
       {/* Pung/Chi burst — flies toward the claimer's seat (relative to the iPad). */}
       {burst && (
@@ -204,7 +223,7 @@ export default function IPadView() {
         </div>
         <div className="relative overflow-hidden" style={{ gridArea: "center" }}>
           {isPlaying ? (
-            <DiscardPool discardPile={gameState?.discardPile} lastDiscard={gameState?.lastDiscard} size="m" />
+            <DiscardPool discardPile={gameState?.discardPile} lastDiscard={gameState?.lastDiscard} size="l" maxVisible={24} />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3">
               <div className="text-[4rem]">🀄</div>
@@ -235,6 +254,23 @@ export default function IPadView() {
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+// One separated, highlighted group in the winning hand (a set, or the pair).
+function WinGroup({ label, children, delay = 0, gold }: { label: string; children: React.ReactNode; delay?: number; gold?: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 animate-pop-in" style={{ animationDelay: `${delay * 130}ms` }}>
+      <span className={cn("text-[0.7rem] uppercase tracking-wide font-bold", gold ? "text-gold" : "text-sand")}>{label}</span>
+      <div
+        className={cn(
+          "flex gap-0.5 p-2 rounded-xl border-2",
+          gold ? "border-gold bg-gold/15 shadow-[0_0_18px_rgba(251,191,36,0.35)]" : "border-[rgba(251,191,36,0.4)] bg-black/40",
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }

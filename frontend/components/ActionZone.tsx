@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Claim, ClaimType } from "@/lib/types";
-import { base } from "@/lib/tiles";
+import Tile from "./Tile";
 import { btnGhost, btnGold, btnRed, cn } from "@/lib/ui";
 
 interface ClaimWindowLike {
@@ -17,6 +17,8 @@ interface ActionZoneProps {
   selectedTile: string | null;
   claimWindow: ClaimWindowLike | null;
   mySeat: number | null;
+  /** The tile on the table this claim window is about (so Pung can preview it). */
+  discardTile?: string | null;
   legalClaims?: Claim[];
   onDiscard: (tile: string) => void;
   onHu: () => void;
@@ -24,12 +26,34 @@ interface ActionZoneProps {
   onPass: () => void;
 }
 
-// Plain-English verb + Mahjong term (brief §9).
-function ActionButton({ klass, verb, term, onClick }: { klass: string; verb: string; term: string; onClick: () => void }) {
+// A claim button that shows the actual tiles that would form the meld, so it's
+// obvious *which* Pung/Chi you're taking (Chi can have several valid runs).
+function ClaimButton({
+  klass,
+  verb,
+  term,
+  tiles,
+  onClick,
+}: {
+  klass: string;
+  verb: string;
+  term: string;
+  tiles?: string[];
+  onClick: () => void;
+}) {
   return (
-    <button className={cn(klass, "flex flex-col items-center leading-tight !py-2")} onClick={onClick}>
-      <span className="text-base font-extrabold">{verb}</span>
-      <span className="text-[0.7rem] font-semibold opacity-80">{term}</span>
+    <button className={cn(klass, "flex items-center gap-2 !px-3 !py-1.5")} onClick={onClick}>
+      <span className="flex flex-col items-start leading-tight">
+        <span className="text-sm font-extrabold whitespace-nowrap">{verb}</span>
+        <span className="text-[0.65rem] font-semibold opacity-80">{term}</span>
+      </span>
+      {tiles && tiles.length > 0 && (
+        <span className="flex gap-0.5">
+          {tiles.map((t, i) => (
+            <Tile key={`${t}-${i}`} tileId={t} size="s" />
+          ))}
+        </span>
+      )}
     </button>
   );
 }
@@ -42,6 +66,7 @@ export default function ActionZone({
   selectedTile,
   claimWindow,
   mySeat,
+  discardTile,
   legalClaims = [],
   onDiscard,
   onHu,
@@ -71,9 +96,10 @@ export default function ActionZone({
   // ── Claim window ────────────────────────────────────────────────────────────
   if (phase === "claim_window" && claimWindow) {
     const myLegal = (mySeat !== null && claimWindow.legalBySeat?.[mySeat]) || legalClaims;
-    const hasHu = myLegal.some((c) => c.type === "HU");
-    const hasPung = myLegal.some((c) => c.type === "PUNG");
-    const hasChi = myLegal.some((c) => c.type === "CHI");
+    const hu = myLegal.find((c) => c.type === "HU");
+    const pungs = myLegal.filter((c) => c.type === "PUNG");
+    const chis = myLegal.filter((c) => c.type === "CHI");
+    const dBase = discardTile ? discardTile.split(":")[0] : null;
 
     const timer = (
       <div className="h-[3px] bg-[rgba(251,191,36,0.2)] rounded-[3px] overflow-hidden -mx-1">
@@ -81,7 +107,7 @@ export default function ActionZone({
       </div>
     );
 
-    if (!hasHu && !hasPung && !hasChi) {
+    if (!hu && pungs.length === 0 && chis.length === 0) {
       return (
         <div className="flex flex-col gap-2 py-1">
           {timer}
@@ -94,30 +120,36 @@ export default function ActionZone({
       <div className="flex flex-col gap-2 py-1">
         {timer}
         <div className="flex gap-2 justify-center flex-wrap">
-          {hasHu && <ActionButton klass={btnGold} verb="Win! 🎉" term="胡 Hu" onClick={() => onClaim("HU", [])} />}
-          {hasPung && !hasHu && (
-            <ActionButton
-              klass={btnRed}
-              verb="Grab it 🚨"
-              term="Pung"
-              onClick={() => {
-                const c = myLegal.find((x) => x.type === "PUNG");
-                onClaim("PUNG", c?.tiles || []);
-              }}
-            />
+          {hu ? (
+            // If you can win, that's the only thing that matters.
+            <ClaimButton klass={btnGold} verb="Win! 🎉" term="胡 Hu" onClick={() => onClaim("HU", [])} />
+          ) : (
+            <>
+              {pungs.map((c, i) => (
+                <ClaimButton
+                  key={`pung-${i}`}
+                  klass={btnRed}
+                  verb="Grab it 🚨"
+                  term="Pung"
+                  tiles={dBase ? [dBase, dBase, dBase] : undefined}
+                  onClick={() => onClaim("PUNG", c.tiles)}
+                />
+              ))}
+              {chis.map((c, i) => (
+                <ClaimButton
+                  key={`chi-${i}`}
+                  klass={btnGold}
+                  verb="Connect ↗"
+                  term="Chi"
+                  tiles={c.tiles}
+                  onClick={() => onClaim("CHI", c.tiles)}
+                />
+              ))}
+            </>
           )}
-          {hasChi && !hasHu && (
-            <ActionButton
-              klass={btnGhost}
-              verb="Connect them ↗"
-              term="Chi"
-              onClick={() => {
-                const c = myLegal.find((x) => x.type === "CHI");
-                onClaim("CHI", c?.tiles || []);
-              }}
-            />
-          )}
-          <ActionButton klass={btnGhost} verb="Pass" term="skip" onClick={onPass} />
+          <button className={cn(btnGhost, "!px-4 !py-1.5")} onClick={onPass}>
+            Pass
+          </button>
         </div>
       </div>
     );
@@ -127,16 +159,15 @@ export default function ActionZone({
   if (isMyTurn) {
     return (
       <div className="flex flex-col gap-2 py-1">
-        <div className="flex gap-2 justify-center flex-wrap">
-          {canWin && <ActionButton klass={btnGold} verb="Win! 🎉" term="胡 Hu" onClick={onHu} />}
+        <div className="flex gap-2 justify-center items-center flex-wrap">
+          {canWin && <ClaimButton klass={btnGold} verb="Win! 🎉" term="胡 Hu" onClick={onHu} />}
           {mustDiscard && selectedTile && (
-            <button className={btnRed} onClick={() => onDiscard(selectedTile)}>
-              Discard {base(selectedTile)}
+            <button className={cn(btnRed, "flex items-center gap-2 !py-1.5")} onClick={() => onDiscard(selectedTile)}>
+              <span className="font-extrabold">Discard</span>
+              <Tile tileId={selectedTile} size="s" />
             </button>
           )}
-          {mustDiscard && !selectedTile && (
-            <p className="text-[0.8rem] text-sand text-center">Tap a tile to discard</p>
-          )}
+          {mustDiscard && !selectedTile && <p className="text-[0.8rem] text-sand text-center">Tap a tile to discard</p>}
         </div>
       </div>
     );
