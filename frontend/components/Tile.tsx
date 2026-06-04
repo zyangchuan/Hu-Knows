@@ -69,8 +69,8 @@ export default function Tile({ tileId, size = "m", selected, glow, dim, back, on
         sz.box,
         suit.bg,
         onClick && "cursor-pointer hover:-translate-y-1",
-        selected && "-translate-y-2 shadow-[0_8px_16px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.5)]",
-        selected && onClick && "hover:-translate-y-2.5",
+        selected && "-translate-y-3 [box-shadow:0_0_0_3px_var(--color-gold),0_10px_18px_rgba(0,0,0,0.45)] z-10",
+        selected && onClick && "hover:-translate-y-3.5",
         glow &&
           "animate-tile-pulse [box-shadow:0_0_0_2px_var(--color-gold),0_0_14px_rgba(251,191,36,0.35),0_1px_2px_rgba(0,0,0,0.22)]",
         dim && "opacity-40",

@@ -108,6 +108,10 @@ html, body {
   color: var(--color-cream);
   font-family: "Inter", system-ui, sans-serif;
   overscroll-behavior: none;
+  /* Kill the mobile double-tap-zoom + 300ms tap delay that swallowed taps,
+     and the grey tap-highlight flash — makes tile taps feel instant. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Fonts used inside tiles (referenced by a couple of spans). */

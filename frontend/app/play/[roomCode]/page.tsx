@@ -158,9 +158,10 @@ export default function PhoneView() {
 
   const handleDiscard = (tile: string) => {
     send({ type: "DISCARD", tile });
+    setMyHand((prev) => prev.filter((t) => t !== tile)); // instant feedback — tile leaves the rack now
     setSelectedTile(null);
     setIsMyTurn(false);
-    setBanner(null);
+    setBanner({ text: "Tile thrown ✓", type: "green" });
   };
   const handleHu = () => {
     send({ type: "CLAIM", claimType: "HU", tiles: [] });
@@ -290,21 +291,34 @@ export default function PhoneView() {
         {/* Your hand is the focus — it grows to fill the screen. Other players'
             status / melds live on the shared iPad, not here. */}
         <div className="flex-1 flex flex-col justify-center gap-2 min-h-0">
-          <div className={sectionLabel}>
-            Your hand ({myHand.length})
-            {isMyTurn && mustDiscard && selectedTile && <span className="text-gold ml-2 normal-case">tap again to confirm</span>}
+          <div className={cn(sectionLabel, "flex items-center gap-2")}>
+            <span>Your hand ({myHand.length})</span>
+            {isMyTurn && mustDiscard && (
+              <span className="text-gold normal-case font-bold animate-pulse">
+                {selectedTile ? "👉 tap again (or press Discard) to throw" : "👉 your turn — tap a tile to throw"}
+              </span>
+            )}
           </div>
-          <TileRack
-            tiles={myHand}
-            size="l"
-            selectedTile={selectedTile}
-            onSelect={(t) => {
-              if (!isMyTurn || !mustDiscard) return;
-              if (selectedTile === t) handleDiscard(t);
-              else setSelectedTile(t);
-            }}
-            disabled={!isMyTurn || canWin}
-          />
+          <div
+            className={cn(
+              "rounded-2xl p-2 transition-all",
+              isMyTurn && mustDiscard
+                ? "ring-2 ring-gold/70 bg-gold/5 shadow-[0_0_24px_rgba(251,191,36,0.25)]"
+                : "ring-1 ring-white/5",
+            )}
+          >
+            <TileRack
+              tiles={myHand}
+              size="l"
+              selectedTile={selectedTile}
+              onSelect={(t) => {
+                if (!isMyTurn || !mustDiscard) return;
+                if (selectedTile === t) handleDiscard(t);
+                else setSelectedTile(t);
+              }}
+              disabled={!isMyTurn || canWin}
+            />
+          </div>
         </div>
 
         {gameState.lastDiscard && (
