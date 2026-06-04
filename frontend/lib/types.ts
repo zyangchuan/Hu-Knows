@@ -2,6 +2,7 @@
 import type { Claim, ClaimType, Meld } from "./rules";
 import type { TileInstance } from "./tiles";
 import type { DnaCard } from "./tiles";
+import type { Lesson } from "./education";
 
 export type { Claim, ClaimType, Meld };
 
@@ -61,7 +62,8 @@ export type ClientMessage =
   | { type: "ADD_BOT"; seat: number }
   | { type: "START_GAME" }
   | { type: "DISCARD"; tile: TileInstance }
-  | { type: "CLAIM"; claimType: ClaimType | null; tiles: string[] };
+  | { type: "CLAIM"; claimType: ClaimType | null; tiles: string[] }
+  | { type: "RESUME" };
 
 // ── Messages: server → client ─────────────────────────────────────────────────
 export type ServerMessage =
@@ -104,6 +106,9 @@ export type ServerMessage =
     }
   | { type: "DRAW"; message: string }
   | { type: "GAME_OVER"; tableSummary: TableSummaryRow[]; hands: number }
+  // Educational pause: a new Pung/Chi this round shows a lesson and freezes play.
+  | { type: "LESSON"; lesson: Lesson; until: number }
+  | { type: "RESUME_GAME" }
   | { type: "ERROR"; message: string };
 
 export type ServerMessageType = ServerMessage["type"];

@@ -75,6 +75,15 @@ export class GameEngine {
   private handlers: { [K in keyof EngineEvents]?: EngineHandler<K> } = {};
   private handScores: Record<number, number> = {};
 
+  // Optional gate: after an educational claim the Room can hold progression (the
+  // 10s learning pause) and call resume() when the timer elapses or is overridden.
+  pauseHook: ((info: { claimType: "PUNG" | "CHI"; meld: string[]; winnerSeat: number }, resume: () => void) => void) | null = null;
+
+  private continueOrPause(info: { claimType: "PUNG" | "CHI"; meld: string[]; winnerSeat: number }, cont: () => void): void {
+    if (this.pauseHook) this.pauseHook(info, cont);
+    else cont();
+  }
+
   constructor(seats: EngineSeat[]) {
     this.seats = seats;
     seats.forEach((s) => {
@@ -293,7 +302,10 @@ export class GameEngine {
         meld: [discardBase, discardBase, discardBase],
         dna: getDnaCard(discardBase),
       });
-      this.afterClaimDiscard(seat);
+      this.continueOrPause(
+        { claimType: "PUNG", meld: [discardBase, discardBase, discardBase], winnerSeat: seat },
+        () => this.afterClaimDiscard(seat),
+      );
       return;
     }
 
@@ -313,7 +325,7 @@ export class GameEngine {
     this.melds[seat].push({ type: "chi", tiles: chiTiles, instanceIds: meldInstances });
 
     this.emit("claim_resolved", { winnerSeat: seat, claimType: "CHI", meld: chiTiles, dna: getDnaCard(discardBase) });
-    this.afterClaimDiscard(seat);
+    this.continueOrPause({ claimType: "CHI", meld: chiTiles, winnerSeat: seat }, () => this.afterClaimDiscard(seat));
   }
 
   private afterClaimDiscard(seat: number): void {

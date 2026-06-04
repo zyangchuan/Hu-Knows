@@ -8,7 +8,7 @@ import ActionZone from "@/components/ActionZone";
 import Tile from "@/components/Tile";
 import { SEAT_NAMES } from "@/lib/tiles";
 import type { Claim, ClaimType, ClaimWindowState, GameState, Meld, ServerMessage, TableSummaryRow } from "@/lib/types";
-import { btnGhost, btnGold, cn, feltRadial } from "@/lib/ui";
+import { btnGhost, btnGold, cn, feltRadial, sectionLabel } from "@/lib/ui";
 
 type Banner = { text: string; type: "info" | "gold" | "green" | "red" } | null;
 
@@ -121,6 +121,12 @@ export default function PhoneView() {
         setGameOver({ tableSummary: msg.tableSummary });
         setIsMyTurn(false);
         setClaimWindow(null);
+        break;
+      case "LESSON":
+        setBanner({ text: "📖 Scam lesson on the table — look up! Game resumes shortly.", type: "gold" });
+        break;
+      case "RESUME_GAME":
+        setBanner(null);
         break;
       case "ERROR":
         setBanner({ text: `Error: ${msg.message}`, type: "red" });
@@ -271,20 +277,22 @@ export default function PhoneView() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 min-h-0">
         {myMelds.length > 0 && (
           <div>
-            <div className="text-[0.7rem] text-sand font-semibold uppercase tracking-[0.8px] mb-0.5">Your melds</div>
+            <div className={sectionLabel}>Your melds</div>
             <div className="flex gap-1.5 flex-wrap">
               {myMelds.map((m, i) => <MeldGroup key={i} meld={m} size="m" />)}
             </div>
           </div>
         )}
 
-        <div>
-          <div className="text-[0.7rem] text-sand font-semibold uppercase tracking-[0.8px] mb-0.5">
-            Your hand ({myHand.length} tiles)
-            {isMyTurn && mustDiscard && selectedTile && <span className="text-gold ml-2">tap again to confirm</span>}
+        {/* Your hand is the focus — it grows to fill the screen. Other players'
+            status / melds live on the shared iPad, not here. */}
+        <div className="flex-1 flex flex-col justify-center gap-2 min-h-0">
+          <div className={sectionLabel}>
+            Your hand ({myHand.length})
+            {isMyTurn && mustDiscard && selectedTile && <span className="text-gold ml-2 normal-case">tap again to confirm</span>}
           </div>
           <TileRack
             tiles={myHand}
@@ -299,27 +307,12 @@ export default function PhoneView() {
           />
         </div>
 
-        <div>
-          <div className="text-[0.7rem] text-sand font-semibold uppercase tracking-[0.8px] mb-0.5">Table</div>
-          {gameState.seats?.filter((s) => s.seat !== mySeat).map((s) => (
-            <div key={s.seat} className="flex items-center gap-2 py-1 border-b border-white/5">
-              <span className={cn("font-bold text-[0.8rem] min-w-5", gameState.turnSeat === s.seat ? "text-gold" : "text-sand")}>{SEAT_NAMES[s.seat]}</span>
-              <span className="text-[0.8rem] text-cream flex-1">{s.pairName}{s.isBot ? " 🤖" : ""}</span>
-              <span className="text-[0.75rem] text-sand">{s.handCount} tiles</span>
-              {(s.melds?.length ?? 0) > 0 && (
-                <div className="flex gap-0.5">{s.melds!.map((m, i) => <MeldGroup key={i} meld={m} size="s" />)}</div>
-              )}
-            </div>
-          ))}
-        </div>
-
         {gameState.lastDiscard && (
           <div>
-            <div className="text-[0.7rem] text-sand font-semibold uppercase tracking-[0.8px] mb-0.5">Last discard</div>
-            <div className="flex gap-1 items-center">
-              <span className="text-[0.75rem] text-sand">{gameState.lastDiscardSeat !== null ? SEAT_NAMES[gameState.lastDiscardSeat] : ""}:</span>
-              <Tile tileId={gameState.lastDiscard} size="m" glow />
+            <div className={sectionLabel}>
+              Latest discard{gameState.lastDiscardSeat !== null ? ` · ${SEAT_NAMES[gameState.lastDiscardSeat]}` : ""}
             </div>
+            <Tile tileId={gameState.lastDiscard} size="l" glow />
           </div>
         )}
       </div>
@@ -333,6 +326,7 @@ export default function PhoneView() {
           selectedTile={selectedTile}
           claimWindow={claimWindow}
           mySeat={mySeat}
+          discardTile={gameState.lastDiscard}
           legalClaims={legalClaims}
           onDiscard={handleDiscard}
           onHu={handleHu}
@@ -344,7 +338,7 @@ export default function PhoneView() {
       <div className="flex border-t border-[rgba(251,191,36,0.1)] bg-black/30">
         {[
           { label: "Sort 🀄", onClick: () => setSelectedTile(null) },
-          { label: "中 / EN", onClick: () => {} },
+          { label: "中 / EN", onClick: () => setBanner({ text: "中文 toggle coming soon", type: "info" }) },
           { label: "Help", onClick: () => setBanner({ text: "Grab it = Pung · Connect = Chi · Win = Hu", type: "info" }) },
           { label: "⬅ Lobby", onClick: () => router.push("/") },
         ].map((b, i) => (
