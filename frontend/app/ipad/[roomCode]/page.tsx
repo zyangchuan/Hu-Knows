@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useGameSocket } from "@/lib/useGameSocket";
 import SeatBlock from "@/components/SeatBlock";
 import DiscardPool from "@/components/DiscardPool";
-import ScamCard from "@/components/ScamCard";
+import ScamCard, { type DisplayMode } from "@/components/ScamCard";
 import Tile from "@/components/Tile";
 import { SEAT_NAMES } from "@/lib/tiles";
 import { decomposeWin } from "@/lib/rules";
@@ -41,6 +41,20 @@ export default function IPadView() {
   const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[] } | null>(null);
   const [burst, setBurst] = useState<ClaimBurst | null>(null);
   const burstId = useRef(0);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("ipad");
+
+  // Persist the iPad/Projector choice across reloads.
+  useEffect(() => {
+    const saved = localStorage.getItem("hu-display-mode");
+    if (saved === "ipad" || saved === "projector") setDisplayMode(saved);
+  }, []);
+  const toggleMode = useCallback(() => {
+    setDisplayMode((m) => {
+      const next = m === "ipad" ? "projector" : "ipad";
+      localStorage.setItem("hu-display-mode", next);
+      return next;
+    });
+  }, []);
 
   const handleMessage = useCallback((msg: ServerMessage) => {
     switch (msg.type) {
@@ -146,6 +160,15 @@ export default function IPadView() {
         info={gameState?.handNumber ? `Hand ${gameState.handNumber}` : ""}
         connected={connected}
         right={isPlaying ? `⬛ ${gameState!.wallCount} tiles left` : "Waiting for players…"}
+        toggle={
+          <button
+            onClick={toggleMode}
+            title="Switch how the scam lesson is shown"
+            className="rounded-full border border-[rgba(251,191,36,0.4)] text-sand hover:text-cream hover:border-gold px-3 py-1 text-[0.75rem] font-semibold transition-colors cursor-pointer"
+          >
+            {displayMode === "ipad" ? "🀄 iPad mode" : "📽️ Projector mode"}
+          </button>
+        }
       />
 
       {huWinner && (
@@ -179,7 +202,7 @@ export default function IPadView() {
         </div>
       )}
 
-      {lesson && <ScamCard lesson={lesson} until={lessonUntil} onOverride={() => send({ type: "RESUME" })} />}
+      {lesson && <ScamCard lesson={lesson} until={lessonUntil} mode={displayMode} onOverride={() => send({ type: "RESUME" })} />}
 
       {/* Pung/Chi burst — flies toward the claimer's seat (relative to the iPad). */}
       {burst && (
@@ -275,16 +298,31 @@ function WinGroup({ label, children, delay = 0, gold }: { label: string; childre
   );
 }
 
-function Chrome({ roomCode, info, connected, right }: { roomCode: string; info: string; connected: boolean; right: string }) {
+function Chrome({
+  roomCode,
+  info,
+  connected,
+  right,
+  toggle,
+}: {
+  roomCode: string;
+  info: string;
+  connected: boolean;
+  right: string;
+  toggle?: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center justify-between px-5 py-2 bg-black/35 border-b border-[rgba(251,191,36,0.12)] shrink-0">
-      <span className="text-[1.1rem] font-black text-gold">胡 Hu Knows or Don&apos;t Know</span>
-      <span className="text-[0.85rem] text-sand">
+    <div className="flex items-center justify-between gap-3 px-5 py-2 bg-black/35 border-b border-[rgba(251,191,36,0.12)] shrink-0">
+      <span className="text-[1.1rem] font-black text-gold shrink-0">胡 Hu Knows or Don&apos;t Know</span>
+      <span className="text-[0.85rem] text-sand truncate">
         Room <strong className="text-gold tracking-[2px]">{roomCode}</strong>
         {info ? ` · ${info}` : ""}
         {!connected && <span className="text-[#f87171] ml-2">● Reconnecting…</span>}
       </span>
-      <span className="text-[0.85rem] text-cream font-bold">{right}</span>
+      <span className="flex items-center gap-3 shrink-0">
+        {toggle}
+        <span className="text-[0.85rem] text-cream font-bold">{right}</span>
+      </span>
     </div>
   );
 }

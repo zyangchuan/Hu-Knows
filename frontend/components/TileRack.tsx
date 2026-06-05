@@ -1,5 +1,6 @@
 import Tile, { type TileSize } from "./Tile";
 import { sortHand } from "@/lib/rules";
+import { cn } from "@/lib/ui";
 
 interface TileRackProps {
   tiles?: string[];
@@ -8,6 +9,8 @@ interface TileRackProps {
   onSelect?: (tile: string) => void;
   disabled?: boolean;
   highlight?: string[];
+  /** Single horizontal row (scrolls) instead of wrapping — used for the phone hand. */
+  wrap?: boolean;
 }
 
 export default function TileRack({
@@ -17,10 +20,16 @@ export default function TileRack({
   onSelect,
   disabled = false,
   highlight = [],
+  wrap = true,
 }: TileRackProps) {
   const sorted = sortHand(tiles);
   return (
-    <div className="flex flex-wrap gap-1 justify-center">
+    <div
+      className={cn(
+        "flex gap-1 justify-center items-end",
+        wrap ? "flex-wrap" : "flex-nowrap overflow-x-auto pb-1",
+      )}
+    >
       {sorted.map((t) => (
         <Tile
           key={t}

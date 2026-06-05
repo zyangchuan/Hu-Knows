@@ -17,9 +17,9 @@ interface TileProps {
 // Bigger tiles than the original — readable on real iPad/phone screens.
 const SIZE: Record<TileSize, { box: string; px: number; label: string; num: string }> = {
   s: { box: "w-[36px] h-[48px] p-[2px_1px] rounded-[4px]", px: 24, label: "hidden", num: "text-[10px]" },
-  m: { box: "w-[52px] h-[70px] p-[3px_2px] rounded-[5px]", px: 30, label: "text-[8px]", num: "text-[12px]" },
-  l: { box: "w-[72px] h-[96px] p-[5px_4px] rounded-[7px]", px: 44, label: "text-[11px]", num: "text-[15px]" },
-  xl: { box: "w-[108px] h-[146px] p-[10px_7px] rounded-[10px] border-b-[3px]", px: 74, label: "text-[14px]", num: "text-[22px]" },
+  m: { box: "w-[52px] h-[70px] p-[3px_2px] rounded-[5px]", px: 32, label: "text-[7px]", num: "text-[11px]" },
+  l: { box: "w-[72px] h-[96px] p-[5px_4px] rounded-[7px]", px: 46, label: "text-[9px]", num: "text-[14px]" },
+  xl: { box: "w-[108px] h-[146px] p-[10px_7px] rounded-[10px] border-b-[3px]", px: 76, label: "text-[12px]", num: "text-[20px]" },
 };
 
 const SUIT: Record<Suit, { bg: string; ink: string }> = {
@@ -91,7 +91,7 @@ export default function Tile({ tileId, size = "m", selected, glow, dim, back, on
       {sz.label !== "hidden" && (
         <span
           className={cn(
-            "font-bold uppercase tracking-[0.2px] leading-[1.0] mt-0.5 max-w-full px-0.5 text-center line-clamp-2 [overflow-wrap:anywhere]",
+            "font-semibold tracking-tight leading-none mt-0.5 max-w-full px-0.5 text-center whitespace-nowrap overflow-hidden text-ellipsis",
             sz.label,
           )}
         >

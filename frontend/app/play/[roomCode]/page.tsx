@@ -8,7 +8,7 @@ import ActionZone from "@/components/ActionZone";
 import Tile from "@/components/Tile";
 import { SEAT_NAMES } from "@/lib/tiles";
 import type { Claim, ClaimType, ClaimWindowState, GameState, Meld, ServerMessage, TableSummaryRow } from "@/lib/types";
-import { btnGhost, btnGold, cn, feltRadial, sectionLabel } from "@/lib/ui";
+import { btnGold, cn, feltRadial } from "@/lib/ui";
 
 type Banner = { text: string; type: "info" | "gold" | "green" | "red" } | null;
 
@@ -247,19 +247,32 @@ export default function PhoneView() {
   // ── In-game ──────────────────────────────────────────────────────────────────
   return (
     <Shell>
-      <div className="flex items-center justify-between px-4 py-2 bg-black/30 border-b border-[rgba(251,191,36,0.1)]">
-        <span className="text-base font-black text-gold">胡</span>
-        <span className="text-[0.8rem] text-sand">
-          {pairName} · {mySeat !== null ? SEAT_NAMES[mySeat] : ""}
-          {gameState.turnSeat === mySeat && <span className="text-gold ml-1">★</span>}
-        </span>
-        <span className="text-[0.7rem] text-sand">⬛{gameState.wallCount} left</span>
+      {/* Thin top bar — identity, the tile you can act on, wall count. Nothing else. */}
+      <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-black/30 border-b border-[rgba(251,191,36,0.1)] shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <button onClick={() => router.push("/")} title="Leave" className="text-sand/60 hover:text-cream text-base leading-none shrink-0">
+            ✕
+          </button>
+          <span className="text-sm font-bold text-cream truncate">
+            {mySeat !== null ? SEAT_NAMES[mySeat] : ""} · {pairName}
+            {gameState.turnSeat === mySeat && <span className="text-gold ml-1">★</span>}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {gameState.lastDiscard && (
+            <div className="flex items-center gap-1">
+              <span className="text-[0.6rem] text-sand uppercase tracking-wide">last</span>
+              <Tile tileId={gameState.lastDiscard} size="s" glow />
+            </div>
+          )}
+          <span className="text-[0.7rem] text-sand">⬛{gameState.wallCount}</span>
+        </div>
       </div>
 
       {banner && (
         <div
           className={cn(
-            "px-4 py-2 text-[0.8rem] font-semibold border-l-[3px]",
+            "px-4 py-1.5 text-[0.8rem] font-semibold border-l-[3px] shrink-0 text-center",
             banner.type === "red"
               ? "bg-[rgba(185,28,28,0.15)] border-scam-red text-[#f87171]"
               : banner.type === "green"
@@ -272,66 +285,47 @@ export default function PhoneView() {
       )}
 
       {huWinner && (
-        <div className="bg-black/70 px-4 py-3 text-center">
-          <div className="text-[2rem] text-gold animate-hu-bounce">胡!</div>
-          <div className="text-cream text-[0.9rem]">{huWinner.pairName} wins!</div>
+        <div className="bg-black/70 px-4 py-2 text-center shrink-0">
+          <span className="text-[1.6rem] text-gold animate-hu-bounce">胡!</span>
+          <span className="text-cream text-[0.9rem] ml-2">{huWinner.pairName} wins!</span>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 min-h-0">
+      {/* The hand is the entire focus — one big horizontal row, centred. */}
+      <div className="flex-1 flex flex-col justify-center gap-2 px-2 min-h-0">
         {myMelds.length > 0 && (
-          <div>
-            <div className={sectionLabel}>Your melds</div>
-            <div className="flex gap-1.5 flex-wrap">
-              {myMelds.map((m, i) => <MeldGroup key={i} meld={m} size="m" />)}
-            </div>
+          <div className="flex gap-1.5 justify-center flex-wrap shrink-0">
+            {myMelds.map((m, i) => <MeldGroup key={i} meld={m} size="s" />)}
           </div>
         )}
-
-        {/* Your hand is the focus — it grows to fill the screen. Other players'
-            status / melds live on the shared iPad, not here. */}
-        <div className="flex-1 flex flex-col justify-center gap-2 min-h-0">
-          <div className={cn(sectionLabel, "flex items-center gap-2")}>
-            <span>Your hand ({myHand.length})</span>
-            {isMyTurn && mustDiscard && (
-              <span className="text-gold normal-case font-bold animate-pulse">
-                {selectedTile ? "👉 tap again (or press Discard) to throw" : "👉 your turn — tap a tile to throw"}
-              </span>
-            )}
+        {isMyTurn && mustDiscard && (
+          <div className="text-center text-gold text-xs font-bold animate-pulse shrink-0">
+            {selectedTile ? "tap again (or Discard ▸) to throw" : "your turn — tap a tile to throw"}
           </div>
-          <div
-            className={cn(
-              "rounded-2xl p-2 transition-all",
-              isMyTurn && mustDiscard
-                ? "ring-2 ring-gold/70 bg-gold/5 shadow-[0_0_24px_rgba(251,191,36,0.25)]"
-                : "ring-1 ring-white/5",
-            )}
-          >
-            <TileRack
-              tiles={myHand}
-              size="l"
-              selectedTile={selectedTile}
-              onSelect={(t) => {
-                if (!isMyTurn || !mustDiscard) return;
-                if (selectedTile === t) handleDiscard(t);
-                else setSelectedTile(t);
-              }}
-              disabled={!isMyTurn || canWin}
-            />
-          </div>
+        )}
+        <div
+          className={cn(
+            "rounded-2xl p-2 transition-all",
+            isMyTurn && mustDiscard ? "ring-2 ring-gold/70 bg-gold/5 shadow-[0_0_24px_rgba(251,191,36,0.25)]" : "",
+          )}
+        >
+          <TileRack
+            tiles={myHand}
+            size="l"
+            wrap={false}
+            selectedTile={selectedTile}
+            onSelect={(t) => {
+              if (!isMyTurn || !mustDiscard) return;
+              if (selectedTile === t) handleDiscard(t);
+              else setSelectedTile(t);
+            }}
+            disabled={!isMyTurn || canWin}
+          />
         </div>
-
-        {gameState.lastDiscard && (
-          <div>
-            <div className={sectionLabel}>
-              Latest discard{gameState.lastDiscardSeat !== null ? ` · ${SEAT_NAMES[gameState.lastDiscardSeat]}` : ""}
-            </div>
-            <Tile tileId={gameState.lastDiscard} size="l" glow />
-          </div>
-        )}
       </div>
 
-      <div className="px-3 py-2 border-t border-[rgba(251,191,36,0.1)] bg-black/20">
+      {/* Bottom: actions only. */}
+      <div className="px-3 py-2 border-t border-[rgba(251,191,36,0.1)] bg-black/20 shrink-0">
         <ActionZone
           phase={gameState.phase}
           isMyTurn={isMyTurn}
@@ -347,19 +341,6 @@ export default function PhoneView() {
           onClaim={handleClaim}
           onPass={handlePass}
         />
-      </div>
-
-      <div className="flex border-t border-[rgba(251,191,36,0.1)] bg-black/30">
-        {[
-          { label: "Sort 🀄", onClick: () => setSelectedTile(null) },
-          { label: "中 / EN", onClick: () => setBanner({ text: "中文 toggle coming soon", type: "info" }) },
-          { label: "Help", onClick: () => setBanner({ text: "Grab it = Pung · Connect = Chi · Win = Hu", type: "info" }) },
-          { label: "⬅ Lobby", onClick: () => router.push("/") },
-        ].map((b, i) => (
-          <button key={i} className={cn(btnGhost, "flex-1 !border-0 !border-r !border-white/5 !rounded-none !text-[0.75rem] !py-2.5 last:!border-r-0")} onClick={b.onClick}>
-            {b.label}
-          </button>
-        ))}
       </div>
     </Shell>
   );
