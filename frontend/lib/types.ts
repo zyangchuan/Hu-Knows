@@ -57,7 +57,6 @@ export interface TableSummaryRow {
 // ── Messages: client → server ─────────────────────────────────────────────────
 export type ClientMessage =
   | { type: "CREATE_ROOM" }
-  | { type: "REJOIN_IPAD"; roomCode: string }
   | { type: "JOIN_ROOM"; roomCode: string; pairName: string }
   | { type: "ADD_BOT"; seat: number }
   | { type: "START_GAME" }

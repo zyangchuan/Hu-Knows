@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useGameSocket } from "@/lib/useGameSocket";
+import { getClientName, setClientName } from "@/lib/net/clientIdentity";
 import TileRack from "@/components/TileRack";
 import MeldGroup from "@/components/MeldGroup";
 import ActionZone from "@/components/ActionZone";
@@ -123,7 +124,7 @@ export default function PhoneView() {
         setClaimWindow(null);
         break;
       case "LESSON":
-        setBanner({ text: "📖 Scam lesson on the table — look up! Game resumes shortly.", type: "gold" });
+        setBanner({ text: "📖 Scam lesson on the table — look up! Resumes when the host continues.", type: "gold" });
         break;
       case "RESUME_GAME":
         setBanner(null);
@@ -137,22 +138,24 @@ export default function PhoneView() {
     }
   }, []);
 
-  const { send, connected } = useGameSocket(handleMessage);
+  // Connects to /play with the room code in the handshake, so the server replays
+  // the current state on connection. A returning player's seat + hand are
+  // reclaimed automatically (by clientId) and SEAT_ASSIGNED marks them joined; a
+  // first-time player just sees the current board and takes a seat via the form.
+  const { send, connected } = useGameSocket(handleMessage, "player", roomCode);
 
-  // Prefill / auto-rejoin from a saved pair name.
+  // Prefill the name field from the saved client name for the first-time join.
   useEffect(() => {
-    if (typeof window === "undefined" || !roomCode || joined) return;
-    const saved = sessionStorage.getItem(`pair-${roomCode}`);
+    const saved = getClientName();
     if (saved) {
       setNameInput(saved);
       setPairName(saved);
-      if (connected) send({ type: "JOIN_ROOM", roomCode, pairName: saved });
     }
-  }, [roomCode, joined, connected, send]);
+  }, []);
 
   const doJoin = () => {
     const name = nameInput.trim() || "Anonymous";
-    sessionStorage.setItem(`pair-${roomCode}`, name);
+    setClientName(name); // persist the player's name in localStorage for reuse
     send({ type: "JOIN_ROOM", roomCode, pairName: name });
   };
 

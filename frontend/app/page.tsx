@@ -3,18 +3,27 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useGameSocket } from "@/lib/useGameSocket";
+import { getClientName, setClientName } from "@/lib/net/clientIdentity";
 import { SEAT_NAMES } from "@/lib/tiles";
-import type { ServerMessage, SeatInfo } from "@/lib/types";
+import type { ClientMessage, ServerMessage, SeatInfo } from "@/lib/types";
 import { btnGold, btnGhost, cn, feltRadial, inputField } from "@/lib/ui";
 
-type Mode = null | "ipad" | "phone";
+// The lobby connects only once the user picks an operation:
+//   host → /host namespace (renders the board), player → /play (phone UI).
+type Role = "host" | "player";
 
 export default function Lobby() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>(null);
+  const [role, setRole] = useState<Role | null>(null);
+  // First message to send once the chosen-namespace connection is live.
+  const [pendingAction, setPendingAction] = useState<ClientMessage | null>(null);
+  // Room code put in the connection handshake — set when joining an existing room
+  // (so the server replays its state); undefined when creating a fresh table.
+  const [connRoomCode, setConnRoomCode] = useState<string | undefined>(undefined);
   const [roomCode, setRoomCode] = useState("");
   const [inputCode, setInputCode] = useState("");
-  const [pairName, setPairName] = useState("");
+  // Prefill the pair name from the saved client name (players only).
+  const [pairName, setPairName] = useState(getClientName);
   const [seats, setSeats] = useState<SeatInfo[]>([]);
   const [mySeat, setMySeat] = useState<number | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -43,7 +52,7 @@ export default function Lobby() {
           setJoining(false);
           break;
         case "GAME_STARTED":
-          if (mode === "ipad") router.push(`/ipad/${roomCode}`);
+          if (role === "host") router.push(`/host/${roomCode}`);
           else router.push(`/play/${roomCode || inputCode.toUpperCase()}`);
           break;
         case "ERROR":
@@ -54,17 +63,25 @@ export default function Lobby() {
           break;
       }
     },
-    [mode, roomCode, inputCode, router],
+    [role, roomCode, inputCode, router],
   );
 
-  const { send, connected } = useGameSocket(handleMessage);
+  const { send, connected } = useGameSocket(handleMessage, role, connRoomCode);
   useEffect(() => {
     sendRef.current = send as never;
   }, [send]);
 
+  // Fire the first message once the chosen-namespace connection is live.
+  useEffect(() => {
+    if (connected && pendingAction) {
+      send(pendingAction);
+      setPendingAction(null);
+    }
+  }, [connected, pendingAction, send]);
+
   const handleCreateRoom = () => {
-    setMode("ipad");
-    send({ type: "CREATE_ROOM" });
+    setRole("host"); // connects to /host
+    setPendingAction({ type: "CREATE_ROOM" });
   };
 
   const handleJoinRoom = () => {
@@ -76,29 +93,30 @@ export default function Lobby() {
     }
     setError("");
     setJoining(true);
-    setMode("phone");
-    if (typeof window !== "undefined") sessionStorage.setItem(`pair-${code}`, name);
-    send({ type: "JOIN_ROOM", roomCode: code, pairName: name });
+    setClientName(name); // persist the player's name in localStorage for reuse
+    setConnRoomCode(code); // handshake room code → server replays state on connect
+    setRole("player"); // connects to /play
+    setPendingAction({ type: "JOIN_ROOM", roomCode: code, pairName: name });
   };
 
   const handleDemo = () => {
-    setMode("ipad");
+    setRole("host");
     setAutoStart(true);
-    send({ type: "CREATE_ROOM" });
+    setPendingAction({ type: "CREATE_ROOM" });
   };
 
   // When a demo room is created, fill with bots and start.
   useEffect(() => {
-    if (autoStart && roomCode && mode === "ipad") {
+    if (autoStart && roomCode && role === "host") {
       setAutoStart(false);
       const s = send;
       setTimeout(() => [0, 1, 2, 3].forEach((seat) => s({ type: "ADD_BOT", seat })), 200);
       setTimeout(() => s({ type: "START_GAME" }), 600);
     }
-  }, [autoStart, roomCode, mode, send]);
+  }, [autoStart, roomCode, role, send]);
 
-  // ── iPad lobby ────────────────────────────────────────────────────────────
-  if (mode === "ipad" && roomCode) {
+  // ── Host lobby ──────────────────────────────────────────────────────────────
+  if (role === "host" && roomCode) {
     return (
       <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 p-6", feltRadial)}>
         <div className="text-center">
@@ -169,7 +187,7 @@ export default function Lobby() {
   }
 
   // ── Phone lobby (waiting after join) ────────────────────────────────────────
-  if (mode === "phone" && mySeat !== null) {
+  if (role === "player" && mySeat !== null) {
     return (
       <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 p-6", feltRadial)}>
         <div className="text-center">
@@ -198,7 +216,7 @@ export default function Lobby() {
         <p className="text-sand mt-1">Anti-scam Mahjong · Learn · Play · Protect Singapore</p>
       </div>
 
-      {!connected && (
+      {role !== null && !connected && (
         <div className="bg-[rgba(185,28,28,0.15)] border border-scam-red rounded-lg px-4 py-2 text-[0.85rem] text-[#f87171]">
           Connecting…
         </div>
@@ -208,7 +226,7 @@ export default function Lobby() {
         <div className="flex-1 min-w-[280px] max-w-[360px] bg-white/[0.04] border border-[rgba(251,191,36,0.2)] rounded-2xl p-7 flex flex-col gap-4">
           <h2 className="text-cream text-xl font-bold">📱 Create Table</h2>
           <p className="text-sand text-[0.875rem] leading-relaxed">Set up the shared display. Place this device at the centre of the table.</p>
-          <button className={btnGold} onClick={handleCreateRoom} disabled={!connected}>Create Table (iPad)</button>
+          <button className={btnGold} onClick={handleCreateRoom} disabled={role !== null}>Create Table</button>
         </div>
 
         <div className="flex-1 min-w-[280px] max-w-[360px] bg-white/[0.04] border border-[rgba(251,191,36,0.2)] rounded-2xl p-7 flex flex-col gap-4">
@@ -230,13 +248,13 @@ export default function Lobby() {
             onKeyDown={(e) => e.key === "Enter" && handleJoinRoom()}
           />
           {error && <p className="text-[#f87171] text-[0.85rem]">{error}</p>}
-          <button className={btnGold} onClick={handleJoinRoom} disabled={!connected || joining}>
+          <button className={btnGold} onClick={handleJoinRoom} disabled={joining}>
             {joining ? "Joining…" : "Join Game →"}
           </button>
         </div>
       </div>
 
-      <button className="bg-none border-none text-[rgba(212,180,131,0.5)] text-[0.8rem] cursor-pointer underline hover:text-sand" onClick={handleDemo} disabled={!connected}>
+      <button className="bg-none border-none text-[rgba(212,180,131,0.5)] text-[0.8rem] cursor-pointer underline hover:text-sand" onClick={handleDemo} disabled={role !== null}>
         ▶ Demo mode — instant 4-bot game
       </button>
 

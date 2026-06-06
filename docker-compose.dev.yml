@@ -34,9 +34,18 @@ services:
       - ./services/user-service/proto:/app/proto
       - /app/node_modules
 
+  game-redis:
+    # Publish for local redis-cli inspection during development.
+    ports:
+      - "6379:6379"
+
   game-service:
     build:
       target: dev
+    env_file:
+      # Supplies SUPABASE_JWT_SECRET / SUPABASE_JWT_AUDIENCE / AUTH_COOKIE_NAME
+      # used to auth the host WebSocket, HOST_AUTH_ENABLED, plus REDIS_URL.
+      - ./.env.dev
     volumes:
       - ./services/game-service/src:/app/src
       - /app/node_modules
@@ -44,6 +53,11 @@ services:
   via-log-service:
     build:
       target: dev
+    env_file:
+      # DATABASE_URL/SSL, SUPABASE_JWT_SECRET/AUDIENCE, AUTH_COOKIE_NAME,
+      # and USER_SERVICE_GRPC_URL (user-service:50051).
+      - ./.env.dev
     volumes:
       - ./services/via-log-service/src:/app/src
+      - ./services/via-log-service/proto:/app/proto
       - /app/node_modules

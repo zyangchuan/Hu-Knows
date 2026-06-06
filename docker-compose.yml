@@ -26,12 +26,24 @@ services:
       - "50051"
     restart: unless-stopped
 
+  game-redis:
+    container_name: game-redis
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    expose:
+      - "6379"
+    volumes:
+      - game-redis-data:/data
+    restart: unless-stopped
+
   game-service:
     container_name: game-service
     build:
       context: ./services/game-service
     expose:
       - "8000"
+    depends_on:
+      - game-redis
     restart: unless-stopped
 
   via-log-service:
@@ -40,6 +52,7 @@ services:
       context: ./services/via-log-service
     expose:
       - "8000"
+      - "50051"
     restart: unless-stopped
 
   docs:
@@ -63,3 +76,6 @@ services:
       - via-log-service
       - docs
     restart: unless-stopped
+
+volumes:
+  game-redis-data:

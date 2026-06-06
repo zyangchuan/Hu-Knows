@@ -1,9 +1,11 @@
-// ─── Bot AI (ported from the original Node server) ────────────────────────────
-import type { Claim } from "../rules";
-import type { TileInstance } from "../tiles";
+// ─── Bot AI (ported from frontend/lib/mock/bot.ts) ────────────────────────────
+// Bots are not separate AI — they're the server playing a seat with the same
+// validated state. See GAME_MECHANIC_BRIEF.md §5.
+import type { Claim } from './rules';
+import type { TileInstance } from './tiles';
 
 function baseOf(t: TileInstance): string {
-  return t.split(":")[0];
+  return t.split(':')[0];
 }
 
 export interface BotTurnInput {
@@ -14,11 +16,11 @@ export interface BotTurnInput {
   legalClaims: Claim[];
 }
 
-export type BotTurnResult = { action: "HU" } | { action: "DISCARD"; tile: TileInstance };
+export type BotTurnResult = { action: 'HU' } | { action: 'DISCARD'; tile: TileInstance };
 
 export function botTurn({ hand, canWin }: BotTurnInput): BotTurnResult {
-  if (canWin) return { action: "HU" };
-  return { action: "DISCARD", tile: chooseDiscard(hand) };
+  if (canWin) return { action: 'HU' };
+  return { action: 'DISCARD', tile: chooseDiscard(hand) };
 }
 
 export interface BotClaimInput {
@@ -31,15 +33,15 @@ export function botClaim({ legalClaims }: BotClaimInput): Claim | null {
   if (!legalClaims || legalClaims.length === 0) return null;
 
   // HU always.
-  const hu = legalClaims.find((c) => c.type === "HU");
+  const hu = legalClaims.find((c) => c.type === 'HU');
   if (hu) return hu;
 
   // PUNG: conservative — pung most of the time.
-  const pung = legalClaims.find((c) => c.type === "PUNG");
+  const pung = legalClaims.find((c) => c.type === 'PUNG');
   if (pung && Math.random() < 0.8) return pung;
 
   // CHI: 30% of the time.
-  const chi = legalClaims.find((c) => c.type === "CHI");
+  const chi = legalClaims.find((c) => c.type === 'CHI');
   if (chi && Math.random() < 0.3) return chi;
 
   return null; // pass
@@ -56,7 +58,7 @@ function chooseDiscard(hand: TileInstance[]): TileInstance {
     score += (bases.filter((x) => x === b).length - 1) * 3;
 
     // +2 per adjacent suit tile (potential chi).
-    if (b[0] === "A" || b[0] === "B") {
+    if (b[0] === 'A' || b[0] === 'B') {
       const num = parseInt(b[1]);
       const suit = b[0];
       for (let d = -2; d <= 2; d++) {

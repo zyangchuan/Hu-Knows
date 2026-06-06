@@ -17,7 +17,13 @@ services:
   game-service:
     build:
       target: runner
+    env_file:
+      # Host (iPad) WebSocket auth: SUPABASE_JWT_SECRET / SUPABASE_JWT_AUDIENCE /
+      # AUTH_COOKIE_NAME (shared with user-service).
+      - ./.env.prod
 
   via-log-service:
     build:
       target: runner
+    env_file:
+      - ./.env.prod

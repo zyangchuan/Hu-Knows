@@ -24,6 +24,8 @@ export class UsersService {
       supabaseUserId: dto.supabase_user_id,
       name: dto.name,
       email: dto.email,
+      role: dto.role,
+      organisation: dto.organisation,
     });
 
     try {

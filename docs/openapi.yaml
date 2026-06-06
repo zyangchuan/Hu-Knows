@@ -14,26 +14,99 @@ tags:
   - name: via-log-service
     description: Via log service
   - name: game-service
-    description: >-
-      Game service. Real-time API is a Socket.IO WebSocket gateway at
-      /api/game-service/socket.io (not describable in OpenAPI); only the HTTP
-      health check is listed here.
+    description: |
+      **Hu Knows** — server-authoritative Mahjong over WebSocket. The server is
+      the only brain; clients are thin renderers (see `GAME_MECHANIC_BRIEF.md`).
+
+      The real-time API is **Socket.IO** and cannot be expressed as REST paths,
+      so the full message protocol is documented here. There are **two separate
+      WebSocket instances (Socket.IO namespaces)**, both served on path
+      `/api/game-service/socket.io`:
+
+      | Instance | Namespace | Who | Auth |
+      |----------|-----------|-----|------|
+      | **Host** | `/host` | the shared table device | **Required** — Supabase JWT |
+      | **Player** | `/play` | each phone (a youth+elder pair) | None (room code) |
+
+      All messages travel on a single Socket.IO event named **`message`** whose
+      payload is a JSON object `{ "type": "...", ...payload }` (both directions).
+
+      **State is Redis-backed.** Room/session state is persisted to Redis
+      (write-through) and rehydrated on demand, so a service restart does not
+      lose active sessions. Every connection MUST send a stable `clientId`
+      (persisted in the client's `localStorage`) in the handshake `auth` — it is
+      required and is used to reclaim the session/seat on reconnect. Each game has
+      a `sessionId` and a status (`lobby` → `active` → `ended`); rejoining is
+      driven by the URL room code and an ended game can still be reopened to view
+      the result.
+
+      ### Connecting
+      ```js
+      // Host — must be authenticated. Sends the access_token cookie on the
+      // upgrade request; alternatively io(..., { auth: { token } }).
+      // A persistent clientId is REQUIRED in auth on every connection.
+      const clientId = localStorage.getItem("hu-client-id") ?? crypto.randomUUID();
+      const host = io("/host", { path: "/api/game-service/socket.io", withCredentials: true, auth: { clientId } });
+      // Player (phone) — open; joins with the 4-char room code.
+      const play = io("/play", { path: "/api/game-service/socket.io", auth: { clientId } });
+      host.emit("message", { type: "CREATE_ROOM" });
+      host.on("message", (msg) => { /* render */ });
+      ```
+
+      ### Authentication (host only)
+      The `/host` namespace is gated by a handshake middleware that verifies a
+      **Supabase JWT (HS256)** — the same `access_token` cookie used by
+      user-service. The token is read from (in order): the `access_token`
+      cookie, the Socket.IO `auth.token` payload, or an
+      `Authorization: Bearer <token>` header. A missing/invalid token rejects
+      the handshake with a `connect_error` (`Unauthorized: ...`) and the socket
+      never connects. The `/play` namespace is unauthenticated by design
+      (co-located game, no anti-cheat needed). For local dev without Supabase,
+      set `HOST_AUTH_ENABLED=false` to bypass host auth.
+
+      ### Client → Server messages
+      **Host (`/host`) may send:** `CREATE_ROOM`, `REJOIN_HOST`, `ADD_BOT`,
+      `START_GAME`, `RESUME`.
+      **Player (`/play`) may send:** `JOIN_ROOM`, `DISCARD`, `CLAIM`.
+      A message sent on the wrong namespace is rejected with an `ERROR` reply.
+
+      | Type | Payload | Sent by |
+      |------|---------|---------|
+      | `CREATE_ROOM` | — | host |
+      | `REJOIN_HOST` | `{ roomCode }` | host (reconnect) |
+      | `ADD_BOT` | `{ seat }` | host |
+      | `START_GAME` | — (auto-fills empty seats with bots) | host |
+      | `RESUME` | — (skip the educational pause) | host |
+      | `JOIN_ROOM` | `{ roomCode, pairName }` | player |
+      | `DISCARD` | `{ tile }` | player (turn action) |
+      | `CLAIM` | `{ claimType: "PUNG"\|"CHI"\|"HU"\|null, tiles }` | player (`null` = pass) |
+
+      ### Server → Client messages
+      | Type | Payload | Sent to |
+      |------|---------|---------|
+      | `ROOM_CREATED` | `{ roomCode }` | host |
+      | `LOBBY_UPDATE` | `{ seats:[{seat,pairName,isBot,connected}] }` | all in room |
+      | `SEAT_ASSIGNED` | `{ seat, pairName }` | the joining player |
+      | `GAME_STARTED` | `{ dealerSeat, handNumber }` | all |
+      | `DEAL` | `{ hand }` | each player **privately** (own 10 tiles) |
+      | `STATE_UPDATE` | full public state (`GameState`) | all — the heartbeat |
+      | `YOUR_TURN` | `{ hand, drawnTile, canWin, mustDiscard, legalClaims }` | one player |
+      | `CLAIM_WINDOW_OPEN` | `{ lastDiscard, bySeat, closesAt, legalBySeat }` | all (fixed 4s window) |
+      | `CLAIM_RESOLVED` | `{ winnerSeat, claimType, meld, dna }` | all |
+      | `LESSON` | `{ lesson, until }` | all — educational pause |
+      | `RESUME_GAME` | — | all — pause over |
+      | `HU` | `{ winnerSeat, pairName, hand, melds, winType }` | all — win |
+      | `DRAW` | `{ message }` | all — wall exhausted |
+      | `GAME_OVER` | `{ tableSummary, hands }` | all |
+      | `ERROR` | `{ message }` | one — illegal/blocked action |
+
+      Concealed `hand` arrays are sent **only** to the owning player (via `DEAL`
+      / `YOUR_TURN`); `STATE_UPDATE` exposes only a per-seat `handCount`. Melds
+      are public. Claim priority is **HU > PUNG > CHI**; a Pung/Hu jumps the turn
+      to the claimer. See the `schemas` section below for payload shapes
+      (`GameState`, `Claim`, `Meld`, `WsClientMessage`, `WsServerMessage`).
 
 paths:
-  /api/via-log-service:
-    get:
-      tags: [via-log-service]
-      summary: Hello world
-      responses:
-        "200":
-          description: Greeting
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message: { type: string, example: Hello World! }
-
   /api/via-log-service/health:
     get:
       tags: [via-log-service]
@@ -48,6 +121,28 @@ paths:
                 properties:
                   status: { type: string, example: ok }
                   service: { type: string, example: via-log-service }
+
+  /api/via-log-service/via-logs/me:
+    get:
+      tags: [via-log-service]
+      summary: Get the authenticated volunteer's current total VIA minutes
+      description: >-
+        Volunteers only. Authenticates via the `access_token` cookie; the user id
+        is taken from the JWT. The caller's role is resolved via user-service gRPC
+        and must be `volunteer`. Returns 0 when the user has no via_log row yet.
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: The caller's current total VIA minutes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViaMinutes"
+        "401":
+          description: Missing or invalid Supabase JWT
+        "403":
+          description: Volunteer role required
 
   /api/game-service/health:
     get:
@@ -130,7 +225,7 @@ components:
   schemas:
     CreateUser:
       type: object
-      required: [supabase_user_id, name, email]
+      required: [supabase_user_id, name, email, role, organisation]
       properties:
         supabase_user_id:
           type: string
@@ -143,6 +238,13 @@ components:
           type: string
           format: email
           example: ada@example.com
+        role:
+          type: string
+          enum: [volunteer, organiser]
+          example: volunteer
+        organisation:
+          type: string
+          example: Red Cross
 
     UserProfile:
       type: object
@@ -161,6 +263,209 @@ components:
           type: string
           format: email
           example: ada@example.com
+        role:
+          type: string
+          enum: [volunteer, organiser]
+          example: volunteer
+        organisation:
+          type: string
+          example: Red Cross
         created_at:
           type: string
           format: date-time
+
+    # ── via-log-service ───────────────────────────────────────────────────────────
+    ViaMinutes:
+      type: object
+      properties:
+        user_id:
+          type: string
+          description: Supabase user id of the authenticated volunteer.
+          example: "11111111-1111-1111-1111-111111111111"
+        via_minutes:
+          type: integer
+          description: Current total VIA minutes (0 if the user has no row yet).
+          example: 120
+
+    # ── game-service WebSocket payloads (Socket.IO `message` event) ──────────────
+    Tile:
+      type: string
+      description: >-
+        A tile instance id `BASE:copyIndex` (strip `:n` for the base). Bases:
+        circles `A1`–`A9`, bamboo `B1`–`B9`, winds `WE`/`WS`/`WW`/`WN`, dragons
+        `DR`/`DG`/`DW`.
+      example: "A4:7"
+
+    Claim:
+      type: object
+      description: A claim a player may make on a discard.
+      required: [type, tiles]
+      properties:
+        type:
+          type: string
+          enum: [HU, PUNG, CHI]
+        tiles:
+          type: array
+          description: For CHI, the base ids of the chosen run; empty otherwise.
+          items: { type: string }
+          example: ["A3", "A4", "A5"]
+
+    Meld:
+      type: object
+      description: A completed, face-up set sitting in front of a seat.
+      properties:
+        type:
+          type: string
+          enum: [pung, chi]
+        tiles:
+          type: array
+          items: { type: string }
+          example: ["A4", "A4", "A4"]
+        instanceIds:
+          type: array
+          items: { $ref: "#/components/schemas/Tile" }
+
+    SeatInfo:
+      type: object
+      properties:
+        seat: { type: integer, minimum: 0, maximum: 3 }
+        pairName: { type: string, nullable: true, example: "Sarah & Mdm Tan" }
+        isBot: { type: boolean }
+        connected: { type: boolean }
+        handCount:
+          type: integer
+          description: Public tile count only — concealed tiles are never exposed here.
+        melds:
+          type: array
+          items: { $ref: "#/components/schemas/Meld" }
+
+    GameState:
+      type: object
+      description: >-
+        Public table snapshot — the `STATE_UPDATE` payload rendered by the host.
+        Concealed hands are NOT included (only per-seat `handCount`).
+      properties:
+        phase:
+          type: string
+          enum: [idle, lobby, dealing, playing, claim_window, hand_over, game_over]
+        handNumber: { type: integer }
+        turnSeat: { type: integer }
+        lastDiscard: { allOf: [{ $ref: "#/components/schemas/Tile" }], nullable: true }
+        lastDiscardSeat: { type: integer, nullable: true }
+        wallCount: { type: integer, example: 47 }
+        discardPile:
+          type: array
+          items:
+            type: object
+            properties:
+              tile: { $ref: "#/components/schemas/Tile" }
+              bySeat: { type: integer }
+        seats:
+          type: array
+          items: { $ref: "#/components/schemas/SeatInfo" }
+        claimWindow:
+          nullable: true
+          type: object
+          properties:
+            bySeat: { type: integer }
+            closesAt: { type: integer, description: "Epoch ms when the 4s window closes." }
+            legalBySeat:
+              type: object
+              additionalProperties:
+                type: array
+                items: { $ref: "#/components/schemas/Claim" }
+
+    WsClientMessage:
+      type: object
+      description: >-
+        Client → server message (Socket.IO `message` event). The `type`
+        determines the remaining fields. Host-only: CREATE_ROOM, REJOIN_HOST,
+        ADD_BOT, START_GAME, RESUME. Player-only: JOIN_ROOM, DISCARD, CLAIM.
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [CREATE_ROOM, REJOIN_HOST, JOIN_ROOM, ADD_BOT, START_GAME, DISCARD, CLAIM, RESUME]
+        roomCode: { type: string, example: "AUDC" }
+        pairName: { type: string, example: "Sarah & Mdm Tan" }
+        seat: { type: integer }
+        tile: { $ref: "#/components/schemas/Tile" }
+        claimType:
+          type: string
+          nullable: true
+          enum: [PUNG, CHI, HU, null]
+          description: "`null` = pass during a claim window."
+        tiles:
+          type: array
+          items: { type: string }
+      example:
+        type: CLAIM
+        claimType: CHI
+        tiles: ["A3", "A4", "A5"]
+
+    WsServerMessage:
+      type: object
+      description: >-
+        Server → client message (Socket.IO `message` event). The `type`
+        determines the remaining fields; see the game-service tag description for
+        the full catalogue.
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum:
+            [ROOM_CREATED, LOBBY_UPDATE, SEAT_ASSIGNED, GAME_STARTED, DEAL,
+             STATE_UPDATE, YOUR_TURN, CLAIM_WINDOW_OPEN, CLAIM_RESOLVED, LESSON,
+             RESUME_GAME, HU, DRAW, GAME_OVER, ERROR]
+        roomCode: { type: string }
+        seat: { type: integer }
+        pairName: { type: string }
+        dealerSeat: { type: integer }
+        handNumber: { type: integer }
+        hand:
+          type: array
+          description: Private — sent only to the owning player (DEAL / YOUR_TURN).
+          items: { $ref: "#/components/schemas/Tile" }
+        drawnTile: { allOf: [{ $ref: "#/components/schemas/Tile" }], nullable: true }
+        canWin: { type: boolean }
+        mustDiscard: { type: boolean }
+        legalClaims:
+          type: array
+          items: { $ref: "#/components/schemas/Claim" }
+        lastDiscard: { $ref: "#/components/schemas/Tile" }
+        bySeat: { type: integer }
+        closesAt: { type: integer }
+        legalBySeat:
+          type: object
+          additionalProperties:
+            type: array
+            items: { $ref: "#/components/schemas/Claim" }
+        winnerSeat: { type: integer }
+        claimType: { type: string, enum: [PUNG, CHI, HU] }
+        meld:
+          type: array
+          items: { type: string }
+        dna:
+          nullable: true
+          type: object
+          properties:
+            title: { type: string }
+            stat: { type: string }
+            tool: { type: string }
+            src: { type: string }
+        melds:
+          type: array
+          items: { $ref: "#/components/schemas/Meld" }
+        winType: { type: string }
+        seats:
+          type: array
+          items: { $ref: "#/components/schemas/SeatInfo" }
+        tableSummary:
+          type: array
+          items:
+            type: object
+            properties:
+              seat: { type: integer }
+              pairName: { type: string, nullable: true }
+              wins: { type: integer }
+        message: { type: string }

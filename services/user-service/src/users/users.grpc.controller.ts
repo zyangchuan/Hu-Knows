@@ -2,11 +2,18 @@ import { status } from '@grpc/grpc-js';
 import { Controller } from '@nestjs/common';
 import { GrpcMethod, RpcException } from '@nestjs/microservices';
 
+import { UserRole } from './user-profile.entity';
 import { UsersService } from './users.service';
 
 interface GetUserBySupabaseIdRequest {
   supabase_user_id: string;
 }
+
+/** Map the stored role to its proto `Role` enum name. */
+const ROLE_TO_PROTO: Record<UserRole, string> = {
+  [UserRole.Volunteer]: 'VOLUNTEER',
+  [UserRole.Organiser]: 'ORGANISER',
+};
 
 /** gRPC handlers for the UserProfiles service (see proto/user.proto). */
 @Controller()
@@ -27,6 +34,8 @@ export class UsersGrpcController {
       supabase_user_id: user.supabaseUserId,
       name: user.name,
       email: user.email,
+      role: ROLE_TO_PROTO[user.role],
+      organisation: user.organisation,
       created_at: user.createdAt.toISOString(),
     };
   }

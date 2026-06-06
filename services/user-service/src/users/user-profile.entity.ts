@@ -8,6 +8,12 @@ import {
   PrimaryColumn,
 } from 'typeorm';
 
+/** Role assigned to a user profile. */
+export enum UserRole {
+  Volunteer = 'volunteer',
+  Organiser = 'organiser',
+}
+
 /** A user profile linked 1:1 to a Supabase auth user. */
 @Entity('user_profiles')
 export class UserProfile {
@@ -24,6 +30,12 @@ export class UserProfile {
   @Index({ unique: true })
   @Column()
   email: string;
+
+  @Column({ type: 'enum', enum: UserRole })
+  role: UserRole;
+
+  @Column()
+  organisation: string;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

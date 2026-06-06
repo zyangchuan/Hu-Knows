@@ -1,5 +1,4 @@
 "use client";
-import { useEffect, useState } from "react";
 import Tile from "./Tile";
 import type { Lesson } from "@/lib/education";
 import { cn } from "@/lib/ui";
@@ -8,8 +7,7 @@ export type DisplayMode = "ipad" | "projector";
 
 interface ScamCardProps {
   lesson: Lesson | null;
-  /** Epoch ms when the learning pause ends (drives the countdown). */
-  until: number;
+  /** Host presses continue to resume — there is no timer. */
   onOverride: () => void;
   /** ipad = readable from both sides (mirrored); projector = one big card. */
   mode?: DisplayMode;
@@ -67,24 +65,12 @@ function LessonBody({ lesson, big }: { lesson: Lesson; big?: boolean }) {
   );
 }
 
-export default function ScamCard({ lesson, until, onOverride, mode = "ipad" }: ScamCardProps) {
-  const [secs, setSecs] = useState(0);
-
-  useEffect(() => {
-    if (!lesson) return;
-    const update = () => setSecs(Math.max(0, Math.ceil((until - Date.now()) / 1000)));
-    update();
-    const id = setInterval(update, 250);
-    return () => clearInterval(id);
-  }, [lesson, until]);
-
+export default function ScamCard({ lesson, onOverride, mode = "ipad" }: ScamCardProps) {
   if (!lesson) return null;
 
   const controls = (
     <div className="flex items-center gap-4">
-      <span className="text-sand text-sm">
-        Game paused · resuming in <span className="text-gold font-bold tabular-nums">{secs}s</span>
-      </span>
+      <span className="text-sand text-sm">Game paused</span>
       <button
         onClick={onOverride}
         className="bg-gradient-to-br from-gold to-gold-deep text-ink rounded-full px-5 py-2 text-sm font-extrabold shadow-[0_2px_10px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-transform cursor-pointer"

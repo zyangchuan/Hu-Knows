@@ -36,7 +36,6 @@ export default function IPadView() {
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [lesson, setLesson] = useState<Lesson | null>(null);
-  const [lessonUntil, setLessonUntil] = useState(0);
   const [huWinner, setHuWinner] = useState<{ pairName: string; hand: string[]; melds: Meld[] } | null>(null);
   const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[] } | null>(null);
   const [burst, setBurst] = useState<ClaimBurst | null>(null);
@@ -79,14 +78,13 @@ export default function IPadView() {
         break;
       case "LESSON":
         setLesson(msg.lesson);
-        setLessonUntil(msg.until);
         break;
       case "RESUME_GAME":
         setLesson(null);
         break;
       case "HU":
+        // Stays up until the host presses Continue (cleared on GAME_STARTED).
         setHuWinner({ pairName: msg.pairName, hand: msg.hand, melds: msg.melds });
-        setTimeout(() => setHuWinner(null), 9000);
         break;
       case "GAME_OVER":
         setGameOver({ tableSummary: msg.tableSummary });
@@ -96,12 +94,9 @@ export default function IPadView() {
     }
   }, []);
 
-  const { send, connected } = useGameSocket(handleMessage);
-
-  // Re-claim the table on (re)connect — works for direct /ipad/CODE visits too.
-  useEffect(() => {
-    if (connected && roomCode) send({ type: "REJOIN_IPAD", roomCode });
-  }, [connected, roomCode, send]);
+  // Connects to /host with the room code in the handshake, so the server replays
+  // the current table state on connection (incl. after a refresh/reconnect).
+  const { send, connected } = useGameSocket(handleMessage, "host", roomCode);
 
   // Clear the claim burst once its fly animation has played.
   useEffect(() => {
@@ -199,10 +194,20 @@ export default function IPadView() {
                 </div>
               ))}
           </div>
+          <button className={cn(btnGold, "mt-7")} onClick={() => send({ type: "RESUME" })}>Continue ▶</button>
         </div>
       )}
 
-      {lesson && <ScamCard lesson={lesson} until={lessonUntil} mode={displayMode} onOverride={() => send({ type: "RESUME" })} />}
+      {/* Draw (no winner): host continues to the next hand. */}
+      {!huWinner && gameState?.phase === "hand_over" && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 z-[200] animate-fade-in px-4">
+          <div className="text-[3rem]">🀫</div>
+          <div className="text-2xl text-cream font-bold">Draw — no winner this hand</div>
+          <button className={cn(btnGold, "mt-3")} onClick={() => send({ type: "RESUME" })}>Continue ▶</button>
+        </div>
+      )}
+
+      {lesson && <ScamCard lesson={lesson} mode={displayMode} onOverride={() => send({ type: "RESUME" })} />}
 
       {/* Pung/Chi burst — flies toward the claimer's seat (relative to the iPad). */}
       {burst && (
