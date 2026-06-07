@@ -175,11 +175,7 @@ export default function ActionZone({
               <Tile tileId={selectedTile!} size="s" />
             </span>
           </button>
-        ) : (
-          mustDiscard && (
-            <span className="text-[0.8rem] text-gold/90 font-semibold py-1">👆 Tap a tile, then Throw</span>
-          )
-        )}
+        ) : null}
       </div>
     );
   }

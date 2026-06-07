@@ -90,7 +90,7 @@ export default function PhoneView() {
         setMustDiscard(msg.mustDiscard);
         setLegalClaims(msg.legalClaims || []);
         setSelectedTile(null);
-        setBanner(msg.canWin ? { text: "You can win! Press 胡 HU!", type: "gold" } : { text: "Your turn — tap a tile to discard", type: "info" });
+        setBanner(msg.canWin ? { text: "You can win! Press 胡 HU!", type: "gold" } : { text: "Your turn — tap a tile, then Throw", type: "info" });
         break;
       case "CLAIM_WINDOW_OPEN": {
         setClaimWindow({ bySeat: msg.bySeat, closesAt: msg.closesAt, legalBySeat: msg.legalBySeat });
@@ -300,11 +300,6 @@ export default function PhoneView() {
         {myMelds.length > 0 && (
           <div className="flex gap-1.5 justify-center flex-wrap shrink-0">
             {myMelds.map((m, i) => <MeldGroup key={i} meld={m} size="s" />)}
-          </div>
-        )}
-        {isMyTurn && mustDiscard && (
-          <div className="text-center text-gold text-xs font-bold animate-pulse shrink-0">
-            {selectedTile ? "tap again (or Discard ▸) to throw" : "your turn — tap a tile to throw"}
           </div>
         )}
         <div

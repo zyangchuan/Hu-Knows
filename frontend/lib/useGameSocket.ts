@@ -17,6 +17,11 @@ export function useGameSocket(
 ) {
   const clientRef = useRef<GameClient | null>(null);
   const onMessageRef = useRef(onMessage);
+  // Identifies the current connection (role/roomCode/variant). Used to decide
+  // whether a re-run of the connect effect can reuse the live socket.
+  const sigRef = useRef<string>("");
+  // Pending deferred-close from a just-fired cleanup (see below).
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [connected, setConnected] = useState(false);
   // Debounced "outage" flag: only true after the socket has been down for a
   // beat, so a quick reconnect (refresh, Safari foregrounding) doesn't flash
@@ -46,8 +51,21 @@ export function useGameSocket(
       setConnected(false);
       return;
     }
-    const client = createGameClient(role, roomCode, variant);
-    clientRef.current = client;
+    const sig = `${role}|${roomCode ?? ""}|${variant}`;
+
+    // A previous cleanup may have scheduled a deferred close — cancel it. If this
+    // re-run is for the same connection (React StrictMode's dev double-mount, or
+    // unchanged deps), we keep the live socket instead of tearing it down
+    // mid-handshake (which logs "closed before established" and churns).
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
+
+    let client = clientRef.current;
+    if (!client || sigRef.current !== sig) {
+      client?.close();
+      client = createGameClient(role, roomCode, variant);
+      clientRef.current = client;
+      sigRef.current = sig;
+    }
 
     const offMsg = client.onMessage((msg) => onMessageRef.current?.(msg));
     const offStatus = client.onStatus(setConnected);
@@ -55,9 +73,17 @@ export function useGameSocket(
     return () => {
       offMsg();
       offStatus();
-      client.close();
-      clientRef.current = null;
-      setConnected(false);
+      // Defer the disconnect a tick: if the effect re-runs immediately for the
+      // same connection (StrictMode remount), the cancel above keeps the socket
+      // alive. A genuine unmount/param change lets this fire and close cleanly.
+      const closing = client;
+      closeTimer.current = setTimeout(() => {
+        closing.close();
+        if (clientRef.current === closing) clientRef.current = null;
+        sigRef.current = "";
+        setConnected(false);
+        closeTimer.current = null;
+      }, 60);
     };
   }, [role, roomCode, variant]);
 
