@@ -5,11 +5,17 @@ export const metadata: Metadata = {
   title: "胡 Hu Knows or Don't Know",
   description:
     "Anti-scam Mahjong game for Singapore — learn scam defence while playing!",
+  // "Add to Home Screen" runs fullscreen (no Safari address/menu bar).
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Hu Knows" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#0a1f0c",
 };
 
 export default function RootLayout({

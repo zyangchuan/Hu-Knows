@@ -122,3 +122,10 @@ html, body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(212, 180, 131, 0.25); border-radius: 2px; }
+
+/* Certificate print: hide controls, white page. */
+@media print {
+  .no-print { display: none !important; }
+  html, body { background: #fff !important; }
+  .cert-sheet { box-shadow: none !important; width: 100% !important; max-width: 100% !important; }
+}

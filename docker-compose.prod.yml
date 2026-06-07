@@ -22,6 +22,11 @@ services:
       # AUTH_COOKIE_NAME (shared with user-service).
       - ./.env.prod
 
+  game-service-demo:
+    build:
+      target: runner
+    # No env_file — demo runs in-memory with host auth off.
+
   via-log-service:
     build:
       target: runner

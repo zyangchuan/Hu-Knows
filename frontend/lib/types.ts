@@ -62,7 +62,9 @@ export type ClientMessage =
   | { type: "START_GAME" }
   | { type: "DISCARD"; tile: TileInstance }
   | { type: "CLAIM"; claimType: ClaimType | null; tiles: string[] }
-  | { type: "RESUME" };
+  | { type: "RESUME" }
+  // DEMO only: host ends the continuously-looping session → triggers GAME_OVER + certs.
+  | { type: "END_GAME" };
 
 // ── Messages: server → client ─────────────────────────────────────────────────
 export type ServerMessage =

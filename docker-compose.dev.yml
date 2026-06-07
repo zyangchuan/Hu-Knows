@@ -50,6 +50,14 @@ services:
       - ./services/game-service/src:/app/src
       - /app/node_modules
 
+  game-service-demo:
+    build:
+      target: dev
+    # No env_file: the demo needs no Supabase/Redis/DB (in-memory, auth off).
+    volumes:
+      - ./services/game-service-demo/src:/app/src
+      - /app/node_modules
+
   via-log-service:
     build:
       target: dev
