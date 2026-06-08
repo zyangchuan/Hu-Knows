@@ -87,6 +87,17 @@ export default function OnboardingPage() {
         </div>
 
         <label className="flex flex-col gap-1 text-[0.7rem] uppercase tracking-wide text-sand">
+          Full name
+          <input
+            className={inputField}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Your name"
+          />
+          <span className="text-[0.65rem] normal-case tracking-normal text-sand/60">From your Google account — edit if you like.</span>
+        </label>
+
+        <label className="flex flex-col gap-1 text-[0.7rem] uppercase tracking-wide text-sand">
           {ORG_HINT[role].label}
           <input
             className={inputField}

@@ -253,12 +253,14 @@ export default function Lobby() {
         </div>
       </div>
 
-      <button
-        onClick={() => router.push(`/${variant}/login`)}
-        className="text-[0.85rem] text-sand/80 hover:text-gold underline underline-offset-4 transition-colors"
-      >
-        Volunteers &amp; organisers: sign in to track VIA hours →
-      </button>
+      {variant === "app" && (
+        <button
+          onClick={() => router.push(`/${variant}/login`)}
+          className="text-[0.85rem] text-sand/80 hover:text-gold underline underline-offset-4 transition-colors"
+        >
+          Volunteers &amp; organisers: sign in to track VIA hours →
+        </button>
+      )}
 
       <p className="text-[0.75rem] text-[rgba(212,180,131,0.35)] max-w-[400px] text-center">
         CODE_EXP 2026 · Built for Singapore · Every tile teaches scam defence
