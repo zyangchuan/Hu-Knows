@@ -22,7 +22,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 function Header({ right }: { right?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-black/30 border-b border-[rgba(251,191,36,0.1)]">
+    <div className="flex items-center justify-between appbar bg-black/30 border-b border-[rgba(251,191,36,0.1)]">
       <span className="text-base font-black text-gold">胡 Hu Knows</span>
       <span className="text-[0.8rem] text-sand">{right}</span>
     </div>
@@ -227,7 +227,7 @@ export default function PhoneView() {
     return (
       <Shell>
         <Header right={myName} />
-        <div className="flex-1 flex flex-col items-center gap-4 pt-6 px-4 overflow-y-auto pb-8">
+        <div className="flex-1 flex flex-col items-center gap-4 pt-6 px-4 overflow-y-auto safe-pb">
           <div className="text-[2.6rem]">🎓</div>
           <h2 className="text-gold text-[1.3rem] font-black text-center">Thanks for playing!</h2>
 
@@ -286,7 +286,7 @@ export default function PhoneView() {
   return (
     <Shell>
       {/* Thin top bar — identity, the tile you can act on, wall count. Nothing else. */}
-      <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-black/30 border-b border-[rgba(251,191,36,0.1)] shrink-0">
+      <div className="flex items-center justify-between gap-2 appbar bg-black/30 border-b border-[rgba(251,191,36,0.1)] shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <button onClick={() => router.push(`/${variant}`)} title="Leave" className="text-sand/60 hover:text-cream text-base leading-none shrink-0">
             ✕
@@ -358,7 +358,7 @@ export default function PhoneView() {
       </div>
 
       {/* Bottom: actions only. */}
-      <div className="px-3 py-2 border-t border-[rgba(251,191,36,0.1)] bg-black/20 shrink-0">
+      <div className="botbar border-t border-[rgba(251,191,36,0.1)] bg-black/20 shrink-0">
         <ActionZone
           phase={gameState.phase}
           isMyTurn={isMyTurn}

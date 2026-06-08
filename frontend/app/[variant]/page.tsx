@@ -121,7 +121,7 @@ export default function Lobby() {
   // ── Host lobby ──────────────────────────────────────────────────────────────
   if (role === "host" && roomCode) {
     return (
-      <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 p-6", feltRadial)}>
+      <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 safe-pad", feltRadial)}>
         <div className="text-center">
           <h1 className="text-[2.8rem] font-black text-gold tracking-tight">胡 Hu Knows?</h1>
           <p className="text-sand mt-1">Room created — waiting for players</p>
@@ -192,7 +192,7 @@ export default function Lobby() {
   // ── Phone lobby (waiting after join) ────────────────────────────────────────
   if (role === "player" && mySeat !== null) {
     return (
-      <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 p-6", feltRadial)}>
+      <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 safe-pad", feltRadial)}>
         <div className="text-center">
           <h1 className="text-[2.8rem] font-black text-gold tracking-tight">胡 Hu Knows?</h1>
           <p className="text-sand mt-1">Joined as seat {SEAT_NAMES[mySeat]}</p>
@@ -213,7 +213,7 @@ export default function Lobby() {
 
   // ── Main lobby ──────────────────────────────────────────────────────────────
   return (
-    <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 p-6", feltRadial)}>
+    <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 safe-pad", feltRadial)}>
       <div className="text-center">
         <h1 className="text-[2.8rem] font-black text-gold tracking-tight">胡 Hu Knows or Don&apos;t Know</h1>
         <p className="text-sand mt-1">Anti-scam Mahjong · Learn · Play · Protect Singapore</p>

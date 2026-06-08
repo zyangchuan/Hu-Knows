@@ -122,7 +122,7 @@ export default function IPadView() {
     return (
       <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_center,var(--color-felt-warm)_0%,var(--color-felt)_55%,var(--color-felt-deep)_100%)]">
         <Chrome roomCode={roomCode} info="Session complete" reconnecting={reconnecting} right="" />
-        <div className="flex-1 overflow-y-auto px-4 py-6 flex justify-center">
+        <div className="flex-1 overflow-y-auto pt-6 safe-x safe-pb flex justify-center">
           <div className="w-full max-w-[880px] flex flex-col gap-5">
             {/* Header */}
             <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -314,7 +314,7 @@ export default function IPadView() {
 
       {/* Table */}
       <div
-        className="flex-1 relative grid gap-3 p-3"
+        className="flex-1 relative grid gap-3 py-3 safe-x"
         style={{
           gridTemplateAreas: '". north ." "west center east" ". south ."',
           gridTemplateColumns: "minmax(210px,24vw) 1fr minmax(210px,24vw)",
@@ -357,7 +357,7 @@ export default function IPadView() {
       </div>
 
       {isPlaying && gameState?.turnSeat !== undefined && (
-        <div className="bg-black/40 border-t border-[rgba(251,191,36,0.15)] px-4 py-1 flex justify-center text-[0.8rem] text-sand">
+        <div className="bg-black/40 border-t border-[rgba(251,191,36,0.15)] botbar flex justify-center text-[0.8rem] text-sand">
           <span>
             <span className="text-gold font-bold">{SEAT_NAMES[gameState.turnSeat]} {getSeat(gameState.turnSeat).pairName}</span>
             {gameState.phase === "claim_window" ? "'s discard — claim window open" : "'s turn"}
@@ -409,7 +409,7 @@ function Chrome({
   toggle?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 px-5 py-2 bg-black/35 border-b border-[rgba(251,191,36,0.12)] shrink-0">
+    <div className="flex items-center justify-between gap-3 appbar bg-black/35 border-b border-[rgba(251,191,36,0.12)] shrink-0">
       <span className="text-[1.1rem] font-black text-gold shrink-0">胡 Hu Knows or Don&apos;t Know</span>
       <span className="text-[0.85rem] text-sand truncate">
         Room <strong className="text-gold tracking-[2px]">{roomCode}</strong>
