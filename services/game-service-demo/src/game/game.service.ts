@@ -591,8 +591,11 @@ export class GameService {
     }
 
     const taken = room.seats.map((s) => s.seat);
+    // Seat preference: South (1) first, so a single demo player sits at the
+    // bottom of the iPad table facing the judge; the rest fill in around.
+    const SEAT_ORDER = [1, 0, 2, 3];
     let seat: number | null = null;
-    for (let i = 0; i < 4; i++) {
+    for (const i of SEAT_ORDER) {
       if (!taken.includes(i)) {
         seat = i;
         break;
