@@ -205,7 +205,15 @@ export default function Lobby() {
         <p className="text-sand mt-1">Anti-scam Mahjong · Learn · Play · Protect Singapore</p>
       </div>
 
-      <FullscreenButton />
+      <div className="flex items-center gap-2 flex-wrap justify-center">
+        <button
+          onClick={() => router.push(`/${variant}/learn`)}
+          className="rounded-full border border-[rgba(251,191,36,0.4)] text-gold hover:text-cream hover:border-gold px-4 py-1.5 text-[0.85rem] font-semibold transition-colors cursor-pointer bg-gold/10"
+        >
+          📖 How to play
+        </button>
+        <FullscreenButton />
+      </div>
 
       {role !== null && !connected && reconnecting && (
         <div className="bg-[rgba(185,28,28,0.15)] border border-scam-red rounded-lg px-4 py-2 text-[0.85rem] text-[#f87171]">
