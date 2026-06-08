@@ -9,13 +9,10 @@ import Tile from "@/components/Tile";
 import { SEAT_NAMES } from "@/lib/tiles";
 import { decomposeWin } from "@/lib/rules";
 import { downloadCertsPdf } from "@/lib/cert";
+import { buildViaRecords, todayLabel, type ViaRecord } from "@/lib/via";
 import type { Lesson } from "@/lib/education";
 import type { GameState, Meld, ServerMessage, TableSummaryRow } from "@/lib/types";
 import { btnGold, btnGhost, cn } from "@/lib/ui";
-
-// Representative VIA hours printed on a demo certificate (the prod flow tracks
-// real minutes via the via-log-service instead).
-const DEMO_VIA_HOURS = 2;
 
 // Which screen edge each seat sits at (seat 0 East / 1 South / 2 West / 3 North).
 const SEAT_DIR: Record<number, "top" | "bottom" | "left" | "right"> = { 0: "right", 1: "bottom", 2: "left", 3: "top" };
@@ -43,7 +40,7 @@ export default function IPadView() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [huWinner, setHuWinner] = useState<{ pairName: string; hand: string[]; melds: Meld[] } | null>(null);
-  const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[] } | null>(null);
+  const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[]; hands: number; hostName: string } | null>(null);
   const [burst, setBurst] = useState<ClaimBurst | null>(null);
   const burstId = useRef(0);
   const [displayMode, setDisplayMode] = useState<DisplayMode>("ipad");
@@ -93,7 +90,7 @@ export default function IPadView() {
         setHuWinner({ pairName: msg.pairName, hand: msg.hand, melds: msg.melds });
         break;
       case "GAME_OVER":
-        setGameOver({ tableSummary: msg.tableSummary });
+        setGameOver({ tableSummary: msg.tableSummary, hands: msg.hands, hostName: msg.hostName });
         break;
       default:
         break;
@@ -111,57 +108,98 @@ export default function IPadView() {
     return () => clearTimeout(t);
   }, [burst]);
 
-  // ── Game over ───────────────────────────────────────────────────────────────
+  // ── Session complete → VIA Hours Dashboard ───────────────────────────────────
   if (gameOver) {
-    const sorted = [...gameOver.tableSummary].sort((a, b) => b.wins - a.wins);
-    // Demo: auto-generate a VIA certificate per human player (bots excluded).
-    const players = gameOver.tableSummary.filter((r) => r.pairName && !r.pairName.startsWith("Bot "));
-    const dateLabel = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-    const downloadCerts = () =>
-      downloadCertsPdf(
-        players.map((p) => ({ name: p.pairName as string, hours: DEMO_VIA_HOURS, dateLabel, issuedBy: "Hu Knows" })),
-      );
+    const records = buildViaRecords(gameOver.tableSummary, gameOver.hands);
+    const dateLabel = todayLabel();
+    const hostName = gameOver.hostName || "Hu Knows Volunteer";
+    const totalHours = records.reduce((s, r) => s + r.hours, 0);
+    const certFor = (r: ViaRecord) => ({ name: r.name, hours: r.hours, dateLabel, issuedBy: hostName });
+    const slug = (s: string) => s.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "player";
+    const downloadAll = () => downloadCertsPdf(records.map(certFor), "hu-knows-via-certificates.pdf");
+    const downloadOne = (r: ViaRecord) => downloadCertsPdf([certFor(r)], `via-certificate-${slug(r.name)}.pdf`);
+
     return (
       <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_center,var(--color-felt-warm)_0%,var(--color-felt)_55%,var(--color-felt-deep)_100%)]">
-        <Chrome roomCode={roomCode} info="Game Over" reconnecting={reconnecting} right="" />
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
-          <div className="text-[4rem]">🏆</div>
-          <h2 className="text-gold text-[2rem] font-black">Final Scores</h2>
-          <div className="w-full max-w-[500px]">
-            {sorted.map((row, i) => (
-              <div key={row.seat} className={cn("flex justify-between px-3 py-2 rounded-md text-[1.1rem]", i === 0 ? "bg-gold/15 text-gold font-extrabold" : "text-cream")}>
-                <span>{SEAT_NAMES[row.seat]} {row.pairName}</span>
-                <span>{row.wins} wins {i === 0 ? "🏆" : ""}</span>
+        <Chrome roomCode={roomCode} info="Session complete" reconnecting={reconnecting} right="" />
+        <div className="flex-1 overflow-y-auto px-4 py-6 flex justify-center">
+          <div className="w-full max-w-[880px] flex flex-col gap-5">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <h1 className="text-gold text-[1.7rem] font-black flex items-center gap-2">📜 VIA Hours Dashboard</h1>
+                <p className="text-sand text-sm mt-1">
+                  Issued by <span className="text-cream font-semibold">{hostName}</span> · {dateLabel}
+                </p>
               </div>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-4 justify-center mt-4 max-w-[640px]">
-            {HEADLINE.map((h) => (
-              <div key={h.big} className="bg-black/30 border border-[rgba(251,191,36,0.2)] rounded-xl px-5 py-3 min-w-[160px]">
-                <div className="text-gold text-2xl font-black">{h.big}</div>
-                <div className="text-sand text-[0.8rem] leading-tight mt-1">{h.small}</div>
+              <div className="flex items-center gap-2">
+                <button className={cn(btnGhost, "!py-2 !px-4 text-sm")} onClick={() => router.push(`/${variant}`)}>
+                  + New session
+                </button>
+                {records.length > 0 && (
+                  <button className={cn(btnGold, "!py-2.5 !px-4 text-sm")} onClick={downloadAll}>
+                    ⬇️ Download all (PDF)
+                  </button>
+                )}
               </div>
-            ))}
-          </div>
-          <p className="text-sand mt-3">
-            Every tile taught a scam defence. Call <strong className="text-gold">1799</strong> (ScamShield Helpline, 24/7) if you suspect a scam.
-          </p>
-
-          {variant === "demo" && players.length > 0 && (
-            <div className="mt-4 bg-white/[0.05] border border-[rgba(251,191,36,0.25)] rounded-2xl px-6 py-4 flex flex-col items-center gap-2 max-w-[520px]">
-              <div className="text-gold font-bold">📜 VIA certificates ready</div>
-              <p className="text-sand text-[0.85rem] text-center">
-                Auto-generated for {players.length} player{players.length === 1 ? "" : "s"}:{" "}
-                <span className="text-cream">{players.map((p) => p.pairName).join(", ")}</span>
-              </p>
-              <button className={cn(btnGold, "mt-1")} onClick={downloadCerts}>
-                ⬇️ Download VIA certificates (PDF)
-              </button>
             </div>
-          )}
 
-          <div className="flex gap-3 mt-3">
-            <button className={cn(btnGhost)} onClick={() => router.push(`/${variant}`)}>New Game</button>
+            {/* Summary chips */}
+            <div className="grid grid-cols-3 gap-3">
+              <Stat big={`${records.length}`} small={`participant${records.length === 1 ? "" : "s"}`} />
+              <Stat big={`${totalHours}h`} small="VIA hours awarded" />
+              <Stat big={`${gameOver.hands}`} small={`hand${gameOver.hands === 1 ? "" : "s"} played`} />
+            </div>
+
+            {/* The VIA records table — one downloadable certificate per player */}
+            <div className="bg-white/[0.03] border border-white/10 rounded-2xl overflow-hidden">
+              <div className="grid grid-cols-[1.6fr_0.8fr_0.6fr_0.8fr_auto] gap-2 px-4 py-2.5 text-[0.7rem] uppercase tracking-wide text-sand bg-black/30">
+                <span>Player</span>
+                <span>Seat</span>
+                <span>Wins</span>
+                <span>VIA hours</span>
+                <span className="text-right">Certificate</span>
+              </div>
+              {records.length === 0 && (
+                <div className="px-4 py-8 text-center text-sand/60">No human players in this session.</div>
+              )}
+              {records.map((r) => (
+                <div
+                  key={r.seat}
+                  className="grid grid-cols-[1.6fr_0.8fr_0.6fr_0.8fr_auto] gap-2 items-center px-4 py-3 border-t border-white/5 text-sm"
+                >
+                  <span className="text-cream font-semibold truncate">{r.name}</span>
+                  <span className="text-sand">{SEAT_NAMES[r.seat]}</span>
+                  <span className="text-sand">{r.wins}</span>
+                  <span className="text-gold font-bold">{r.hours}h</span>
+                  <span className="flex justify-end">
+                    <button onClick={() => downloadOne(r)} className={cn(btnGold, "!py-1.5 !px-3 !text-[0.75rem]")}>
+                      ⬇️ PDF
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-sand text-center text-sm">
+              Each player can also download their own certificate on their phone. Every tile taught a scam defence — call{" "}
+              <strong className="text-gold">1799</strong> (ScamShield Helpline, 24/7) if you suspect a scam.
+            </p>
+
+            {/* Educational headline stats */}
+            <div className="grid grid-cols-3 gap-3">
+              {HEADLINE.map((h) => (
+                <div key={h.big} className="bg-black/30 border border-[rgba(251,191,36,0.2)] rounded-xl px-4 py-3 text-center">
+                  <div className="text-gold text-xl font-black">{h.big}</div>
+                  <div className="text-sand text-[0.75rem] leading-tight mt-1">{h.small}</div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[0.7rem] text-sand/40 text-center pb-2">
+              Demo mode — certificates are generated on-device from the names players entered. In the full version, hosts sign in
+              and VIA hours are tracked per volunteer.
+            </p>
           </div>
         </div>
       </div>
@@ -326,6 +364,16 @@ export default function IPadView() {
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+// A summary chip on the VIA dashboard (a big number over a small caption).
+function Stat({ big, small }: { big: string; small: string }) {
+  return (
+    <div className="bg-white/[0.04] border border-[rgba(251,191,36,0.18)] rounded-2xl px-4 py-3 text-center">
+      <div className="text-gold text-2xl font-black">{big}</div>
+      <div className="text-sand text-[0.75rem] uppercase tracking-wide mt-0.5">{small}</div>
     </div>
   );
 }

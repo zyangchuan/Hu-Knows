@@ -41,6 +41,7 @@ interface RoomSnapshot {
   sessionId: string;
   status: SessionStatus;
   started: boolean;
+  hostName: string;
   seats: ServerSeat[];
   shownLessons: string[];
   engine: EngineSnapshot | null;
@@ -50,11 +51,31 @@ const ROOM_TTL_SECONDS = 7200; // 2h GC backstop
 const roomKey = (code: string) => `game:room:${code}`;
 const clientKey = (clientId: string) => `game:client:${clientId}`;
 
+// DEMO: there is no host login, so we mint a plausible volunteer/coordinator name
+// per room. It's broadcast in GAME_OVER so the iPad dashboard and every phone
+// print the same issuer on the VIA certificates.
+const HOST_NAMES = [
+  'Ms Rachel Lim',
+  'Mr Tan Wei Ming',
+  'Mdm Siti Nurhaliza',
+  'Mr Raj Kumar',
+  'Ms Chloe Wong',
+  'Mr Daniel Ng',
+  'Ms Aisyah Rahman',
+  'Mr Marcus Lee',
+  'Ms Priya Nair',
+  'Mr Jonathan Goh',
+];
+function randomHostName(): string {
+  return HOST_NAMES[Math.floor(Math.random() * HOST_NAMES.length)];
+}
+
 // ── A single table/room ───────────────────────────────────────────────────────
 class Room {
   code: string;
   sessionId = '';
   status: SessionStatus = 'lobby';
+  hostName: string = randomHostName(); // DEMO issuer name (overwritten on restore)
   hostClientId: string | null = null; // live socket id of the host connection
   phoneClientBySeat: Record<number, string> = {}; // seat → live socket id
   seats: ServerSeat[] = [];
@@ -190,7 +211,7 @@ class Room {
     });
     engine.on('game_over', (data) => {
       this.status = 'ended';
-      this.broadcastAll({ type: 'GAME_OVER', ...data });
+      this.broadcastAll({ type: 'GAME_OVER', ...data, hostName: this.hostName });
     });
   }
 
@@ -277,6 +298,7 @@ class Room {
       sessionId: this.sessionId,
       status: this.status,
       started: this.started,
+      hostName: this.hostName,
       seats: this.seats,
       shownLessons: [...this.shownLessons],
       engine: this.engine ? this.engine.serialize() : null,
@@ -288,6 +310,7 @@ class Room {
     this.sessionId = snap.sessionId;
     this.status = snap.status;
     this.started = snap.started;
+    this.hostName = snap.hostName ?? this.hostName;
     this.seats = snap.seats.map((s) => ({ ...s, connected: false }));
     this.shownLessons = new Set(snap.shownLessons);
     if (snap.engine) {

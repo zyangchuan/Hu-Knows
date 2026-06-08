@@ -42,7 +42,7 @@ function drawCert(doc: jsPDF, w: number, h: number, c: CertInput) {
   doc.setTextColor(...SAND);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text("Anti-Scam Mahjong  ·  Values & Innovation in Action", cx, 104, { align: "center" });
+  doc.text("Anti-Scam Mahjong  ·  Values In Action (VIA)", cx, 104, { align: "center" });
 
   doc.setTextColor(...GREEN);
   doc.setFont("helvetica", "bold");

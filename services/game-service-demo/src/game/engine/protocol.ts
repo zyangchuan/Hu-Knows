@@ -129,7 +129,9 @@ export type ServerMessage =
       winType: string;
     }
   | { type: 'DRAW'; message: string }
-  | { type: 'GAME_OVER'; tableSummary: TableSummaryRow[]; hands: number }
+  // hostName: a random volunteer/coordinator name (server-generated per room) so
+  // the host dashboard and every phone print the same issuer on VIA certificates.
+  | { type: 'GAME_OVER'; tableSummary: TableSummaryRow[]; hands: number; hostName: string }
   // Educational pause: a new Pung/Chi this round shows a lesson and freezes play.
   | { type: 'LESSON'; lesson: Lesson; until: number }
   | { type: 'RESUME_GAME' }

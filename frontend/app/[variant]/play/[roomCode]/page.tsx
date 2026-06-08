@@ -8,8 +8,10 @@ import MeldGroup from "@/components/MeldGroup";
 import ActionZone from "@/components/ActionZone";
 import Tile from "@/components/Tile";
 import { SEAT_NAMES } from "@/lib/tiles";
+import { downloadCertsPdf } from "@/lib/cert";
+import { sessionViaHours, todayLabel } from "@/lib/via";
 import type { Claim, ClaimType, ClaimWindowState, GameState, Meld, ServerMessage, TableSummaryRow } from "@/lib/types";
-import { btnGold, cn, feltRadial } from "@/lib/ui";
+import { btnGold, btnGhost, cn, feltRadial } from "@/lib/ui";
 
 type Banner = { text: string; type: "info" | "gold" | "green" | "red" } | null;
 
@@ -48,7 +50,7 @@ export default function PhoneView() {
   const [claimWindow, setClaimWindow] = useState<ClaimWindowState | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
   const [huWinner, setHuWinner] = useState<{ pairName: string } | null>(null);
-  const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[] } | null>(null);
+  const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[]; hands: number; hostName: string } | null>(null);
 
   const mySeatRef = useRef<number | null>(null);
   useEffect(() => {
@@ -120,7 +122,7 @@ export default function PhoneView() {
         setClaimWindow(null);
         break;
       case "GAME_OVER":
-        setGameOver({ tableSummary: msg.tableSummary });
+        setGameOver({ tableSummary: msg.tableSummary, hands: msg.hands, hostName: msg.hostName });
         setIsMyTurn(false);
         setClaimWindow(null);
         break;
@@ -209,24 +211,56 @@ export default function PhoneView() {
     );
   }
 
-  // ── Game over ─────────────────────────────────────────────────────────────
+  // ── Game over → your personal VIA certificate ───────────────────────────────
   if (gameOver) {
     const sorted = [...gameOver.tableSummary].sort((a, b) => b.wins - a.wins);
+    const myName = pairName || "Participant";
+    const myHours = sessionViaHours(gameOver.hands);
+    const dateLabel = todayLabel();
+    const hostName = gameOver.hostName || "Hu Knows Volunteer";
+    const myWins = mySeat !== null ? gameOver.tableSummary.find((r) => r.seat === mySeat)?.wins ?? 0 : 0;
+    const downloadMine = () =>
+      downloadCertsPdf(
+        [{ name: myName, hours: myHours, dateLabel, issuedBy: hostName }],
+        `via-certificate-${myName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "me"}.pdf`,
+      );
     return (
       <Shell>
-        <Header right={pairName} />
-        <div className="flex-1 flex flex-col items-center gap-4 pt-8 px-4">
-          <div className="text-[3rem]">🏆</div>
-          <h2 className="text-gold text-[1.3rem] font-black">Game Over!</h2>
-          <div className="w-full max-w-[360px]">
+        <Header right={myName} />
+        <div className="flex-1 flex flex-col items-center gap-4 pt-6 px-4 overflow-y-auto pb-8">
+          <div className="text-[2.6rem]">🎓</div>
+          <h2 className="text-gold text-[1.3rem] font-black text-center">Thanks for playing!</h2>
+
+          {/* Personal VIA certificate card */}
+          <div className="w-full max-w-[340px] bg-white/[0.05] border border-[rgba(251,191,36,0.3)] rounded-2xl p-5 flex flex-col items-center gap-1 text-center">
+            <span className="text-[0.7rem] uppercase tracking-[2px] text-sand">📜 VIA Contribution</span>
+            <span className="text-cream text-[1.2rem] font-extrabold mt-1">{myName}</span>
+            <span className="text-gold text-[2rem] font-black leading-none my-1">{myHours} <span className="text-[1rem]">VIA hour{myHours === 1 ? "" : "s"}</span></span>
+            <span className="text-sand text-[0.78rem]">{myWins} win{myWins === 1 ? "" : "s"} · {gameOver.hands} hand{gameOver.hands === 1 ? "" : "s"} played</span>
+            <span className="text-sand/70 text-[0.72rem] mt-1">Issued by {hostName} · {dateLabel}</span>
+            <button className={cn(btnGold, "w-full mt-3")} onClick={downloadMine}>
+              ⬇️ Download my certificate (PDF)
+            </button>
+          </div>
+
+          {/* Compact final scores */}
+          <div className="w-full max-w-[340px]">
+            <div className="text-[0.7rem] uppercase tracking-wide text-sand mb-1 px-1">Final scores</div>
             {sorted.map((row, i) => (
-              <div key={row.seat} className={cn("flex justify-between px-3 py-2 rounded-md", i === 0 ? "bg-gold/15 text-gold font-extrabold" : "text-cream")}>
-                <span>{SEAT_NAMES[row.seat]} {row.pairName}</span>
-                <span>{row.wins} wins {i === 0 ? "🏆" : ""}</span>
+              <div
+                key={row.seat}
+                className={cn(
+                  "flex justify-between px-3 py-1.5 rounded-md text-[0.9rem]",
+                  row.seat === mySeat ? "bg-gold/15 text-gold font-bold" : "text-cream",
+                )}
+              >
+                <span className="truncate">{SEAT_NAMES[row.seat]} {row.pairName}{row.seat === mySeat ? " (you)" : ""}</span>
+                <span className="shrink-0 ml-2">{row.wins} {i === 0 ? "🏆" : ""}</span>
               </div>
             ))}
           </div>
-          <button className={btnGold} onClick={() => router.push(`/${variant}`)}>Play Again</button>
+
+          <button className={cn(btnGhost, "mt-1")} onClick={() => router.push(`/${variant}`)}>← Back to lobby</button>
         </div>
       </Shell>
     );
