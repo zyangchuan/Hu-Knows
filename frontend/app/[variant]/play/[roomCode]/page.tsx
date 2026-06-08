@@ -329,8 +329,9 @@ export default function PhoneView() {
         </div>
       )}
 
-      {/* The hand is the entire focus — one big horizontal row, centred. */}
-      <div className="flex-1 flex flex-col justify-center gap-2 px-2 min-h-0">
+      {/* The hand is the entire focus — one big horizontal row, centred.
+          safe-x keeps the tiles clear of the Dynamic Island/notch in landscape. */}
+      <div className="flex-1 flex flex-col justify-center gap-2 safe-x min-h-0">
         {myMelds.length > 0 && (
           <div className="flex gap-1.5 justify-center flex-wrap shrink-0">
             {myMelds.map((m, i) => <MeldGroup key={i} meld={m} size="s" />)}
