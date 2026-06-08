@@ -16,6 +16,13 @@ export default function OnboardingPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  // The organisation field means different things per role — volunteers (often
+  // students earning VIA) enter their school; organisers enter their club/org.
+  const ORG_HINT: Record<UserRole, { label: string; placeholder: string }> = {
+    volunteer: { label: "Your school / organisation", placeholder: "e.g. ABC Secondary School" },
+    organiser: { label: "Your organisation", placeholder: "e.g. SG Mahjong Club" },
+  };
+
   // Not signed in → back to login. Prefill name from the Google identity.
   useEffect(() => {
     if (loading) return;
@@ -57,35 +64,36 @@ export default function OnboardingPage() {
       </div>
 
       <div className="w-full max-w-[380px] bg-white/[0.04] border border-[rgba(251,191,36,0.2)] rounded-2xl p-6 flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-[0.7rem] uppercase tracking-wide text-sand">
-          Full name
-          <input className={inputField} value={name} onChange={(e) => setName(e.target.value)} placeholder="Tan Wei Jie" />
-        </label>
-
-        <label className="flex flex-col gap-1 text-[0.7rem] uppercase tracking-wide text-sand">
-          Role
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
+          <span className="text-[0.7rem] uppercase tracking-wide text-sand">Who are you signing up as?</span>
+          <div className="flex flex-col gap-2">
             {(["volunteer", "organiser"] as UserRole[]).map((r) => (
               <button
                 key={r}
                 type="button"
                 onClick={() => setRole(r)}
                 className={cn(
-                  "flex-1 rounded-lg px-3 py-2 text-sm font-semibold border capitalize transition-colors cursor-pointer",
+                  "w-full rounded-lg px-4 py-2.5 text-sm font-semibold border text-left transition-colors cursor-pointer flex items-center gap-2",
                   role === r
                     ? "border-gold bg-gold/15 text-gold"
                     : "border-white/15 text-sand hover:text-cream hover:border-white/30",
                 )}
               >
-                {r}
+                <span className={cn("text-base", role === r ? "opacity-100" : "opacity-40")}>{role === r ? "🔘" : "⚪"}</span>
+                I am {r === "organiser" ? "an organiser" : "a volunteer"}
               </button>
             ))}
           </div>
-        </label>
+        </div>
 
         <label className="flex flex-col gap-1 text-[0.7rem] uppercase tracking-wide text-sand">
-          Organisation
-          <input className={inputField} value={organisation} onChange={(e) => setOrganisation(e.target.value)} placeholder="Riverside Secondary School" />
+          {ORG_HINT[role].label}
+          <input
+            className={inputField}
+            value={organisation}
+            onChange={(e) => setOrganisation(e.target.value)}
+            placeholder={ORG_HINT[role].placeholder}
+          />
         </label>
 
         {err && <p className="text-[#f87171] text-[0.8rem]">{err}</p>}
