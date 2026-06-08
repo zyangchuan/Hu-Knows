@@ -6,6 +6,7 @@ import { getClientName, setClientName } from "@/lib/net/clientIdentity";
 import TileRack from "@/components/TileRack";
 import MeldGroup from "@/components/MeldGroup";
 import ActionZone from "@/components/ActionZone";
+import FullscreenButton from "@/components/FullscreenButton";
 import Tile from "@/components/Tile";
 import { SEAT_NAMES } from "@/lib/tiles";
 import { downloadCertsPdf } from "@/lib/cert";
@@ -205,6 +206,7 @@ export default function PhoneView() {
           />
           {!connected && <p className="text-[#f87171] text-[0.75rem]">Connecting…</p>}
           <button className={cn(btnGold, "w-full max-w-[260px]")} onClick={doJoin} disabled={!connected}>Join →</button>
+          <FullscreenButton className="mt-1" />
           <button className="text-sand text-[0.8rem] underline" onClick={() => router.push(`/${variant}`)}>← Back to lobby</button>
         </div>
       </Shell>
@@ -346,7 +348,7 @@ export default function PhoneView() {
           <TileRack
             tiles={myHand}
             size="l"
-            wrap={false}
+            fit
             selectedTile={selectedTile}
             onSelect={(t) => {
               if (!isMyTurn || !mustDiscard) return;

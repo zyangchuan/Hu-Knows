@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useGameSocket } from "@/lib/useGameSocket";
+import FullscreenButton from "@/components/FullscreenButton";
 import { getClientName, setClientName } from "@/lib/net/clientIdentity";
 import { SEAT_NAMES } from "@/lib/tiles";
 import type { ClientMessage, ServerMessage, SeatInfo } from "@/lib/types";
@@ -218,6 +219,8 @@ export default function Lobby() {
         <h1 className="text-[2.8rem] font-black text-gold tracking-tight">胡 Hu Knows or Don&apos;t Know</h1>
         <p className="text-sand mt-1">Anti-scam Mahjong · Learn · Play · Protect Singapore</p>
       </div>
+
+      <FullscreenButton />
 
       {role !== null && !connected && reconnecting && (
         <div className="bg-[rgba(185,28,28,0.15)] border border-scam-red rounded-lg px-4 py-2 text-[0.85rem] text-[#f87171]">
