@@ -32,7 +32,9 @@ function Header({ right }: { right?: React.ReactNode }) {
 
 export default function PhoneView() {
   const { roomCode, variant: rawVariant } = useParams<{ roomCode: string; variant: string }>();
-  const variant: "demo" | "prod" = rawVariant === "prod" ? "prod" : "demo";
+  // URL segment: "demo" (in-memory game-service-demo) or "app" (full backend).
+  const variant: "demo" | "app" = rawVariant === "app" ? "app" : "demo";
+  const gameVariant = variant === "app" ? "prod" : "demo"; // transport/socket path
   const router = useRouter();
 
   const [joined, setJoined] = useState(false);
@@ -146,7 +148,7 @@ export default function PhoneView() {
   // the current state on connection. A returning player's seat + hand are
   // reclaimed automatically (by clientId) and SEAT_ASSIGNED marks them joined; a
   // first-time player just sees the current board and takes a seat via the form.
-  const { send, connected } = useGameSocket(handleMessage, "player", roomCode, variant);
+  const { send, connected } = useGameSocket(handleMessage, "player", roomCode, gameVariant);
 
   // Prefill the name field from the saved client name for the first-time join.
   useEffect(() => {

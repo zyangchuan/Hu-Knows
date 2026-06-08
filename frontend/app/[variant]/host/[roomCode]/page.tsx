@@ -34,7 +34,9 @@ const HEADLINE = [
 
 export default function IPadView() {
   const { roomCode, variant: rawVariant } = useParams<{ roomCode: string; variant: string }>();
-  const variant: "demo" | "prod" = rawVariant === "prod" ? "prod" : "demo";
+  // URL segment: "demo" (in-memory game-service-demo) or "app" (full backend).
+  const variant: "demo" | "app" = rawVariant === "app" ? "app" : "demo";
+  const gameVariant = variant === "app" ? "prod" : "demo"; // transport/socket path
   const router = useRouter();
 
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -99,7 +101,7 @@ export default function IPadView() {
 
   // Connects to /host with the room code in the handshake, so the server replays
   // the current table state on connection (incl. after a refresh/reconnect).
-  const { send, reconnecting } = useGameSocket(handleMessage, "host", roomCode, variant);
+  const { send, reconnecting } = useGameSocket(handleMessage, "host", roomCode, gameVariant);
 
   // Clear the claim burst once its fly animation has played.
   useEffect(() => {

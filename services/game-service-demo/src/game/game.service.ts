@@ -91,13 +91,22 @@ class Room {
   constructor(
     code: string,
     private send: (clientId: string, msg: ServerMessage) => void,
+    // Live socket ids currently attached to this room (host + phones + any
+    // reconnected/spectating socket). Lets broadcasts survive a momentarily
+    // stale seat→socket mapping.
+    private listSockets: () => string[] = () => [],
   ) {
     this.code = code;
   }
 
   broadcastAll(msg: ServerMessage): void {
-    if (this.hostClientId) this.send(this.hostClientId, msg);
-    for (const id of Object.values(this.phoneClientBySeat)) this.send(id, msg);
+    // Deliver to every live socket in the room, deduped — so a stale
+    // seat→socket entry (e.g. just after a phone reconnect) never drops a
+    // broadcast like GAME_OVER.
+    const ids = new Set<string>(this.listSockets());
+    if (this.hostClientId) ids.add(this.hostClientId);
+    for (const id of Object.values(this.phoneClientBySeat)) ids.add(id);
+    for (const id of ids) this.send(id, msg);
     // Every broadcast follows a state change — persist the new snapshot.
     this.onChange?.();
   }
@@ -345,10 +354,17 @@ export class GameService {
 
   // ── Redis store helpers ────────────────────────────────────────────────────
   private newRoom(code: string): Room {
-    const room = new Room(code, this.send);
+    const room = new Room(code, this.send, () => this.roomSocketIds(code));
     room.onChange = () => this.persist(room);
     this.rooms.set(code, room);
     return room;
+  }
+
+  /** Live socket ids currently attached to a room (from clientRoom). */
+  private roomSocketIds(code: string): string[] {
+    const ids: string[] = [];
+    for (const [sid, c] of this.clientRoom) if (c === code) ids.push(sid);
+    return ids;
   }
 
   /** Return the cached live room, or rehydrate it from Redis (or undefined). */

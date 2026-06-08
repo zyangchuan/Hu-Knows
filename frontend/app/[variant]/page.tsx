@@ -15,9 +15,10 @@ type Role = "host" | "player";
 
 export default function Lobby() {
   const router = useRouter();
-  // "demo" (in-memory game-service-demo, no login) or "prod" (real backend).
+  // URL segment: "demo" (in-memory game-service-demo, no login) or "app" (full backend).
   const { variant: rawVariant } = useParams<{ variant: string }>();
-  const variant: "demo" | "prod" = rawVariant === "prod" ? "prod" : "demo";
+  const variant: "demo" | "app" = rawVariant === "app" ? "app" : "demo";
+  const gameVariant = variant === "app" ? "prod" : "demo"; // transport/socket path
   const [role, setRole] = useState<Role | null>(null);
   // First message to send once the chosen-namespace connection is live.
   const [pendingAction, setPendingAction] = useState<ClientMessage | null>(null);
@@ -33,7 +34,6 @@ export default function Lobby() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [joining, setJoining] = useState(false);
-  const [autoStart, setAutoStart] = useState(false);
 
   const sendRef = useRef<((m: never) => void) | null>(null);
 
@@ -70,7 +70,7 @@ export default function Lobby() {
     [role, roomCode, inputCode, router, variant],
   );
 
-  const { send, connected, reconnecting } = useGameSocket(handleMessage, role, connRoomCode, variant);
+  const { send, connected, reconnecting } = useGameSocket(handleMessage, role, connRoomCode, gameVariant);
   useEffect(() => {
     sendRef.current = send as never;
   }, [send]);
@@ -103,21 +103,6 @@ export default function Lobby() {
     setPendingAction({ type: "JOIN_ROOM", roomCode: code, pairName: name });
   };
 
-  const handleDemo = () => {
-    setRole("host");
-    setAutoStart(true);
-    setPendingAction({ type: "CREATE_ROOM" });
-  };
-
-  // When a demo room is created, fill with bots and start.
-  useEffect(() => {
-    if (autoStart && roomCode && role === "host") {
-      setAutoStart(false);
-      const s = send;
-      setTimeout(() => [0, 1, 2, 3].forEach((seat) => s({ type: "ADD_BOT", seat })), 200);
-      setTimeout(() => s({ type: "START_GAME" }), 600);
-    }
-  }, [autoStart, roomCode, role, send]);
 
   // ── Host lobby ──────────────────────────────────────────────────────────────
   if (role === "host" && roomCode) {
@@ -259,10 +244,6 @@ export default function Lobby() {
           </button>
         </div>
       </div>
-
-      <button className="bg-none border-none text-[rgba(212,180,131,0.5)] text-[0.8rem] cursor-pointer underline hover:text-sand" onClick={handleDemo} disabled={role !== null}>
-        ▶ Demo mode — instant 4-bot game
-      </button>
 
       <p className="text-[0.75rem] text-[rgba(212,180,131,0.35)] max-w-[400px] text-center">
         CODE_EXP 2026 · Built for Singapore · Every tile teaches scam defence
