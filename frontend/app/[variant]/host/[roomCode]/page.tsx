@@ -226,14 +226,14 @@ export default function IPadView() {
         right={isPlaying ? `⬛ ${gameState!.wallCount} tiles left` : "Waiting for players…"}
         toggle={
           <span className="flex items-center gap-2">
-            {variant === "demo" && isPlaying && (
+            {isPlaying && (
               <button
                 onClick={() => {
                   if (confirm("End the session now and generate VIA certificates?")) {
                     send({ type: "END_GAME" });
                   }
                 }}
-                title="Stop the looping demo games and show certificates"
+                title="Stop the looping games and show the results"
                 className="rounded-full border border-[rgba(220,80,70,0.5)] bg-[rgba(220,80,70,0.12)] text-[#f3b6b0] hover:text-cream hover:border-[#dc5046] px-3 py-1 text-[0.75rem] font-semibold transition-colors cursor-pointer"
               >
                 ⏹ End game

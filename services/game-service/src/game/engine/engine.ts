@@ -392,15 +392,20 @@ export class GameEngine {
     // Wait for the host to continue (no auto-advance to the next hand).
   }
 
-  /** Host-driven progression from `hand_over` to the next hand (or game over). */
+  /**
+   * Host-driven progression from `hand_over` to the next hand. DEMO: the session
+   * never auto-ends — it keeps dealing new hands until the host presses End Game.
+   */
   advanceHand(): void {
     if (this.phase !== 'hand_over') return;
-    if (this.handNumber >= 4) {
-      this.endGame();
-    } else {
-      this.dealerSeat = (this.dealerSeat + 1) % 4;
-      this.startHand();
-    }
+    this.dealerSeat = (this.dealerSeat + 1) % 4;
+    this.startHand();
+  }
+
+  /** Host pressed "End Game": stop the session now and emit final standings. */
+  endGameNow(): void {
+    if (this.phase === 'game_over') return;
+    this.endGame();
   }
 
   private endGame(): void {

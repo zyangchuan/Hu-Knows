@@ -41,6 +41,7 @@ interface RoomSnapshot {
   sessionId: string;
   status: SessionStatus;
   started: boolean;
+  hostName: string;
   seats: ServerSeat[];
   shownLessons: string[];
   engine: EngineSnapshot | null;
@@ -50,11 +51,31 @@ const ROOM_TTL_SECONDS = 7200; // 2h GC backstop
 const roomKey = (code: string) => `game:room:${code}`;
 const clientKey = (clientId: string) => `game:client:${clientId}`;
 
+// DEMO: there is no host login, so we mint a plausible volunteer/coordinator name
+// per room. It's broadcast in GAME_OVER so the iPad dashboard and every phone
+// print the same issuer on the VIA certificates.
+const HOST_NAMES = [
+  'Ms Rachel Lim',
+  'Mr Tan Wei Ming',
+  'Mdm Siti Nurhaliza',
+  'Mr Raj Kumar',
+  'Ms Chloe Wong',
+  'Mr Daniel Ng',
+  'Ms Aisyah Rahman',
+  'Mr Marcus Lee',
+  'Ms Priya Nair',
+  'Mr Jonathan Goh',
+];
+function randomHostName(): string {
+  return HOST_NAMES[Math.floor(Math.random() * HOST_NAMES.length)];
+}
+
 // ── A single table/room ───────────────────────────────────────────────────────
 class Room {
   code: string;
   sessionId = '';
   status: SessionStatus = 'lobby';
+  hostName: string = randomHostName(); // DEMO issuer name (overwritten on restore)
   hostClientId: string | null = null; // live socket id of the host connection
   phoneClientBySeat: Record<number, string> = {}; // seat → live socket id
   seats: ServerSeat[] = [];
@@ -70,13 +91,22 @@ class Room {
   constructor(
     code: string,
     private send: (clientId: string, msg: ServerMessage) => void,
+    // Live socket ids currently attached to this room (host + phones + any
+    // reconnected/spectating socket). Lets broadcasts survive a momentarily
+    // stale seat→socket mapping.
+    private listSockets: () => string[] = () => [],
   ) {
     this.code = code;
   }
 
   broadcastAll(msg: ServerMessage): void {
-    if (this.hostClientId) this.send(this.hostClientId, msg);
-    for (const id of Object.values(this.phoneClientBySeat)) this.send(id, msg);
+    // Deliver to every live socket in the room, deduped — so a stale
+    // seat→socket entry (e.g. just after a phone reconnect) never drops a
+    // broadcast like GAME_OVER.
+    const ids = new Set<string>(this.listSockets());
+    if (this.hostClientId) ids.add(this.hostClientId);
+    for (const id of Object.values(this.phoneClientBySeat)) ids.add(id);
+    for (const id of ids) this.send(id, msg);
     // Every broadcast follows a state change — persist the new snapshot.
     this.onChange?.();
   }
@@ -190,7 +220,7 @@ class Room {
     });
     engine.on('game_over', (data) => {
       this.status = 'ended';
-      this.broadcastAll({ type: 'GAME_OVER', ...data });
+      this.broadcastAll({ type: 'GAME_OVER', ...data, hostName: this.hostName });
     });
   }
 
@@ -261,6 +291,10 @@ class Room {
         if (!isHost) return this.send(fromClientId, { type: 'ERROR', message: 'Host only' });
         this.hostContinue(); // continue past a lesson pause, or to the next hand
         break;
+      case 'END_GAME':
+        if (!isHost) return this.send(fromClientId, { type: 'ERROR', message: 'Host only' });
+        this.engine?.endGameNow(); // stop the looping session → emits GAME_OVER
+        break;
       default:
         break;
     }
@@ -273,6 +307,7 @@ class Room {
       sessionId: this.sessionId,
       status: this.status,
       started: this.started,
+      hostName: this.hostName,
       seats: this.seats,
       shownLessons: [...this.shownLessons],
       engine: this.engine ? this.engine.serialize() : null,
@@ -284,6 +319,7 @@ class Room {
     this.sessionId = snap.sessionId;
     this.status = snap.status;
     this.started = snap.started;
+    this.hostName = snap.hostName ?? this.hostName;
     this.seats = snap.seats.map((s) => ({ ...s, connected: false }));
     this.shownLessons = new Set(snap.shownLessons);
     if (snap.engine) {
@@ -318,10 +354,17 @@ export class GameService {
 
   // ── Redis store helpers ────────────────────────────────────────────────────
   private newRoom(code: string): Room {
-    const room = new Room(code, this.send);
+    const room = new Room(code, this.send, () => this.roomSocketIds(code));
     room.onChange = () => this.persist(room);
     this.rooms.set(code, room);
     return room;
+  }
+
+  /** Live socket ids currently attached to a room (from clientRoom). */
+  private roomSocketIds(code: string): string[] {
+    const ids: string[] = [];
+    for (const [sid, c] of this.clientRoom) if (c === code) ids.push(sid);
+    return ids;
   }
 
   /** Return the cached live room, or rehydrate it from Redis (or undefined). */
@@ -548,8 +591,11 @@ export class GameService {
     }
 
     const taken = room.seats.map((s) => s.seat);
+    // Seat preference: South (1) first, so a single demo player sits at the
+    // bottom of the iPad table facing the judge; the rest fill in around.
+    const SEAT_ORDER = [1, 0, 2, 3];
     let seat: number | null = null;
-    for (let i = 0; i < 4; i++) {
+    for (const i of SEAT_ORDER) {
       if (!taken.includes(i)) {
         seat = i;
         break;
