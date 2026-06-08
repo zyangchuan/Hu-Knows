@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useGameSocket } from "@/lib/useGameSocket";
 import SeatBlock from "@/components/SeatBlock";
@@ -218,7 +218,7 @@ export default function IPadView() {
   const winDecomp = huWinner ? decomposeWin(huWinner.hand, huWinner.melds.length) : null;
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden bg-[radial-gradient(ellipse_at_center,var(--color-felt-warm)_0%,var(--color-felt)_55%,var(--color-felt-deep)_100%)]">
+    <div className="h-[100dvh] flex flex-col relative overflow-hidden bg-[radial-gradient(ellipse_at_center,var(--color-felt-warm)_0%,var(--color-felt)_55%,var(--color-felt-deep)_100%)]">
       <Chrome
         roomCode={roomCode}
         info={gameState?.handNumber ? `Hand ${gameState.handNumber}` : ""}
@@ -316,26 +316,26 @@ export default function IPadView() {
 
       {/* Table */}
       <div
-        className="flex-1 relative grid gap-3 py-3 safe-x"
+        className="flex-1 min-h-0 relative grid gap-3 py-3 safe-x"
         style={{
           gridTemplateAreas: '". north ." "west center east" ". south ."',
           gridTemplateColumns: "minmax(210px,24vw) 1fr minmax(210px,24vw)",
           gridTemplateRows: "minmax(170px,23vh) 1fr minmax(170px,23vh)",
         }}
       >
-        <div className="flex justify-center items-start" style={{ gridArea: "north" }}>
-          <div className="rotate-180">
+        <div style={{ gridArea: "north" }}>
+          <SeatSlot angle={180}>
             <SeatBlock {...north} size="m" isActive={gameState?.turnSeat === north.seat} />
-          </div>
+          </SeatSlot>
         </div>
-        <div className="flex justify-end items-center" style={{ gridArea: "west" }}>
-          <div className="rotate-90">
+        <div style={{ gridArea: "west" }}>
+          <SeatSlot angle={90}>
             <SeatBlock {...west} size="m" isActive={gameState?.turnSeat === west.seat} />
-          </div>
+          </SeatSlot>
         </div>
         <div className="relative overflow-hidden" style={{ gridArea: "center" }}>
           {isPlaying ? (
-            <DiscardPool discardPile={gameState?.discardPile} lastDiscard={gameState?.lastDiscard} size="l" maxVisible={24} />
+            <DiscardPool discardPile={gameState?.discardPile} lastDiscard={gameState?.lastDiscard} size="m" maxVisible={32} />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-3">
               <div className="text-[4rem]">🀄</div>
@@ -348,13 +348,15 @@ export default function IPadView() {
             </div>
           )}
         </div>
-        <div className="flex justify-start items-center" style={{ gridArea: "east" }}>
-          <div className="-rotate-90">
+        <div style={{ gridArea: "east" }}>
+          <SeatSlot angle={-90}>
             <SeatBlock {...east} size="m" isActive={gameState?.turnSeat === east.seat} />
-          </div>
+          </SeatSlot>
         </div>
-        <div className="flex justify-center items-end" style={{ gridArea: "south" }}>
-          <SeatBlock {...south} size="m" isActive={gameState?.turnSeat === south.seat} />
+        <div style={{ gridArea: "south" }}>
+          <SeatSlot angle={0}>
+            <SeatBlock {...south} size="m" isActive={gameState?.turnSeat === south.seat} />
+          </SeatSlot>
         </div>
       </div>
 
@@ -366,6 +368,48 @@ export default function IPadView() {
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+// Wraps a seat in its grid cell, rotating it to face the table and scaling it
+// down so the whole seat (hidden tiles + however many melds) always fits — never
+// clipped, never overflowing into other seats, never forcing a scroll.
+function SeatSlot({ angle, children }: { angle: number; children: React.ReactNode }) {
+  const cellRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const cell = cellRef.current;
+      const content = contentRef.current;
+      if (!cell || !content) return;
+      const cw = cell.clientWidth;
+      const ch = cell.clientHeight;
+      // offsetWidth/Height are the natural pre-transform size (scale-independent).
+      const lw = content.offsetWidth;
+      const lh = content.offsetHeight;
+      if (!lw || !lh || !cw || !ch) return;
+      // A 90°/270° rotation swaps the on-screen footprint.
+      const swap = Math.abs(angle % 180) === 90;
+      const vw = swap ? lh : lw;
+      const vh = swap ? lw : lh;
+      const s = Math.min(1, cw / vw, ch / vh);
+      setScale(Number.isFinite(s) && s > 0 ? s : 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (cellRef.current) ro.observe(cellRef.current);
+    if (contentRef.current) ro.observe(contentRef.current);
+    return () => ro.disconnect();
+  }, [angle]);
+
+  return (
+    <div ref={cellRef} className="w-full h-full flex items-center justify-center overflow-hidden">
+      <div ref={contentRef} style={{ transform: `rotate(${angle}deg) scale(${scale})`, transformOrigin: "center" }}>
+        {children}
+      </div>
     </div>
   );
 }
