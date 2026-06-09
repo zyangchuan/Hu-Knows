@@ -8,6 +8,8 @@ services:
   frontend:
     build:
       target: dev
+    env_file:
+      - ./.env.dev
     command: npm run dev
     volumes:
       # Bind-mount source for hot reloading...

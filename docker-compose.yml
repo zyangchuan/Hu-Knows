@@ -11,8 +11,6 @@ services:
     container_name: frontend
     build:
       context: ./frontend
-    env_file:
-      - ./.env.dev
     # Next.js standalone server (output: "standalone").
     command: node server.js
     expose:
