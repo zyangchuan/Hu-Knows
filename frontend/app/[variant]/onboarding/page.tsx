@@ -49,7 +49,7 @@ export default function OnboardingPage() {
         role,
         organisation: organisation.trim(),
       });
-      router.replace(`/${variant}/dashboard`);
+      router.replace("/app");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not create your profile.");
       setBusy(false);

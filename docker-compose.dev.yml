@@ -2,15 +2,13 @@
 # this is NOT merged automatically — pass it explicitly:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 #
-# Builds the `dev` image targets, bind-mounts source for hot reloading, and
-# publishes the frontend dev server for direct access.
+# Builds the `dev` image targets and bind-mounts source for hot reloading.
+# The frontend dev server stays internal; use nginx on port 80.
 services:
   frontend:
     build:
       target: dev
     command: npm run dev
-    ports:
-      - "3000:3000"
     volumes:
       # Bind-mount source for hot reloading...
       - ./frontend:/app

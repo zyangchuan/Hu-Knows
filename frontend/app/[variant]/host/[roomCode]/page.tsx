@@ -112,9 +112,68 @@ export default function IPadView() {
 
   // ── Session complete → VIA Hours Dashboard ───────────────────────────────────
   if (gameOver) {
-    const records = buildViaRecords(gameOver.tableSummary, gameOver.hands);
     const dateLabel = todayLabel();
     const hostName = gameOver.hostName || "Hu Knows Volunteer";
+    const sortedSummary = [...gameOver.tableSummary].sort((a, b) => b.wins - a.wins);
+
+    if (variant === "app") {
+      return (
+        <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_center,var(--color-felt-warm)_0%,var(--color-felt)_55%,var(--color-felt-deep)_100%)]">
+          <Chrome roomCode={roomCode} info="Session complete" reconnecting={reconnecting} right="" />
+          <div className="flex-1 overflow-y-auto pt-6 safe-x safe-pb flex justify-center">
+            <div className="w-full max-w-[760px] flex flex-col gap-5">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <h1 className="text-gold text-[1.7rem] font-black">Session Results</h1>
+                  <p className="text-sand text-sm mt-1">
+                    Issued by <span className="text-cream font-semibold">{hostName}</span> · {dateLabel}
+                  </p>
+                </div>
+                <button className={cn(btnGold, "!py-2.5 !px-4 text-sm")} onClick={() => router.push(`/${variant}`)}>
+                  + New session
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Stat big={`${sortedSummary.filter((r) => r.pairName && !r.pairName.startsWith("Bot ")).length}`} small="volunteers credited" />
+                <Stat big={`${gameOver.hands}`} small={`hand${gameOver.hands === 1 ? "" : "s"} played`} />
+              </div>
+
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl overflow-hidden">
+                <div className="grid grid-cols-[1fr_0.7fr_0.5fr_0.8fr] gap-2 px-4 py-2.5 text-[0.7rem] uppercase tracking-wide text-sand bg-black/30">
+                  <span>Player</span>
+                  <span>Seat</span>
+                  <span>Wins</span>
+                  <span className="text-right">VIA</span>
+                </div>
+                {sortedSummary.map((r) => {
+                  const isBot = !r.pairName || r.pairName.startsWith("Bot ");
+                  return (
+                    <div
+                      key={r.seat}
+                      className="grid grid-cols-[1fr_0.7fr_0.5fr_0.8fr] gap-2 items-center px-4 py-3 border-t border-white/5 text-sm"
+                    >
+                      <span className="text-cream font-semibold truncate">{r.pairName || "Empty"}</span>
+                      <span className="text-sand">{SEAT_NAMES[r.seat]}</span>
+                      <span className="text-sand">{r.wins}</span>
+                      <span className="text-right text-[0.75rem] font-semibold">
+                        {isBot ? <span className="text-sand/50">not eligible</span> : <span className="text-[#34d399]">credited</span>}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="text-sand text-center text-sm">
+                VIA minutes have been credited to volunteer accounts. Volunteers can view their totals from their own dashboard.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const records = buildViaRecords(gameOver.tableSummary, gameOver.hands);
     const totalHours = records.reduce((s, r) => s + r.hours, 0);
     const certFor = (r: ViaRecord) => ({ name: r.name, hours: r.hours, dateLabel, issuedBy: hostName });
     const slug = (s: string) => s.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "player";
@@ -138,7 +197,7 @@ export default function IPadView() {
                 <button className={cn(btnGhost, "!py-2 !px-4 text-sm")} onClick={() => router.push(`/${variant}`)}>
                   + New session
                 </button>
-                {records.length > 0 && (
+                {variant === "demo" && records.length > 0 && (
                   <button className={cn(btnGold, "!py-2.5 !px-4 text-sm")} onClick={downloadAll}>
                     ⬇️ Download all (PDF)
                   </button>
@@ -160,7 +219,7 @@ export default function IPadView() {
                 <span>Seat</span>
                 <span>Wins</span>
                 <span>VIA hours</span>
-                <span className="text-right">Certificate</span>
+                <span className="text-right">{variant === "demo" ? "Certificate" : "VIA"}</span>
               </div>
               {records.length === 0 && (
                 <div className="px-4 py-8 text-center text-sand/60">No human players in this session.</div>
@@ -175,17 +234,24 @@ export default function IPadView() {
                   <span className="text-sand">{r.wins}</span>
                   <span className="text-gold font-bold">{r.hours}h</span>
                   <span className="flex justify-end">
-                    <button onClick={() => downloadOne(r)} className={cn(btnGold, "!py-1.5 !px-3 !text-[0.75rem]")}>
-                      ⬇️ PDF
-                    </button>
+                    {variant === "demo" ? (
+                      <button onClick={() => downloadOne(r)} className={cn(btnGold, "!py-1.5 !px-3 !text-[0.75rem]")}>
+                        ⬇️ PDF
+                      </button>
+                    ) : (
+                      <span className="text-[#34d399] text-[0.75rem] font-semibold">✓ credited</span>
+                    )}
                   </span>
                 </div>
               ))}
             </div>
 
             <p className="text-sand text-center text-sm">
-              Each player can also download their own certificate on their phone. Every tile taught a scam defence — call{" "}
-              <strong className="text-gold">1799</strong> (ScamShield Helpline, 24/7) if you suspect a scam.
+              {variant === "demo"
+                ? "Each player can also download their own certificate on their phone. "
+                : "VIA hours have been credited to each volunteer — they can download their certificate from their own dashboard. "}
+              Every tile taught a scam defence — call <strong className="text-gold">1799</strong> (ScamShield Helpline, 24/7) if you
+              suspect a scam.
             </p>
 
             {/* Educational headline stats */}
@@ -199,8 +265,9 @@ export default function IPadView() {
             </div>
 
             <p className="text-[0.7rem] text-sand/40 text-center pb-2">
-              Demo mode — certificates are generated on-device from the names players entered. In the full version, hosts sign in
-              and VIA hours are tracked per volunteer.
+              {variant === "demo"
+                ? "Demo mode — certificates are generated on-device from the names players entered. In the full version, hosts sign in and VIA hours are tracked per volunteer."
+                : "VIA hours are tracked per volunteer and credited automatically."}
             </p>
           </div>
         </div>
@@ -324,7 +391,9 @@ export default function IPadView() {
         }}
       >
         <div style={{ gridArea: "north" }}>
-          <SeatSlot angle={180}>
+          {/* Projector mode shows on a screen everyone faces, so the top seat reads
+              upright; iPad-on-table mode keeps it flipped to face the north player. */}
+          <SeatSlot angle={displayMode === "projector" ? 0 : 180}>
             <SeatBlock {...north} size="m" isActive={gameState?.turnSeat === north.seat} />
           </SeatSlot>
         </div>

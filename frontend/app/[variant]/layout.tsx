@@ -1,7 +1,7 @@
-import AppHeader from "@/components/AppHeader";
+import AppGate from "@/components/AppGate";
 
-// Mount the persistent user badge only on the /app (full-backend) flow, never on
-// /demo. Server layout reads the route param so the auth/session client code
+// The /app (full-backend) flow is auth-gated and carries the user badge; /demo is
+// fully open. Server layout reads the route param so the auth/session client code
 // doesn't even load on the demo pages.
 export default async function VariantLayout({
   children,
@@ -11,10 +11,6 @@ export default async function VariantLayout({
   params: Promise<{ variant: string }>;
 }) {
   const { variant } = await params;
-  return (
-    <>
-      {variant === "app" && <AppHeader />}
-      {children}
-    </>
-  );
+  if (variant === "app") return <AppGate>{children}</AppGate>;
+  return <>{children}</>;
 }

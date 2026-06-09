@@ -52,6 +52,13 @@ export default function AppHeader() {
       <span className={cn("rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide capitalize", "bg-gold/15 text-gold")}>
         {profile.role}
       </span>
+      <button
+        onClick={() => router.push("/app/dashboard")}
+        title="VIA dashboard"
+        className="text-sand/80 hover:text-gold text-[0.75rem] font-semibold leading-none"
+      >
+        Dashboard
+      </button>
       <button onClick={doSignOut} title="Sign out" className="text-sand/70 hover:text-[#f87171] ml-0.5 text-[0.95rem] leading-none">
         ⏻
       </button>

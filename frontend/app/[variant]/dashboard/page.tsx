@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { fetchProfile, fetchViaMinutes, signOut, useSession, type Profile } from "@/lib/auth";
 import { downloadCertsPdf } from "@/lib/cert";
-import { todayLabel } from "@/lib/via";
+import { formatViaHours, todayLabel, viaMinutesToHours } from "@/lib/via";
 import { btnGold, btnGhost, cn, feltRadialDeep } from "@/lib/ui";
 
 export default function DashboardPage() {
@@ -34,14 +34,15 @@ export default function DashboardPage() {
           router.replace(`/${variant}/onboarding`);
           return;
         }
+        if (p.role !== "volunteer") {
+          router.replace(`/${variant}`);
+          return;
+        }
         setProfile(p);
-        // VIA hours endpoint is volunteer-only (VolunteerGuard); skip for organisers.
-        if (p.role === "volunteer") {
-          try {
-            setViaMinutes(await fetchViaMinutes());
-          } catch {
-            setViaMinutes(null);
-          }
+        try {
+          setViaMinutes(await fetchViaMinutes());
+        } catch {
+          setViaMinutes(null);
         }
         setStatus("ready");
       } catch (e) {
@@ -60,7 +61,7 @@ export default function DashboardPage() {
     router.replace(`/${variant}/login`);
   }, [router, variant]);
 
-  const viaHours = viaMinutes === null ? null : Math.round((viaMinutes / 60) * 10) / 10;
+  const viaHours = viaMinutes === null ? null : viaMinutesToHours(viaMinutes);
 
   const downloadCert = () => {
     if (!profile) return;
@@ -104,21 +105,13 @@ export default function DashboardPage() {
       {/* VIA hours hero */}
       <div className="w-full max-w-[560px] bg-white/[0.05] border border-[rgba(251,191,36,0.25)] rounded-2xl p-6 flex flex-col items-center gap-1 text-center">
         <span className="text-[0.7rem] uppercase tracking-[2px] text-sand">📜 Your VIA contribution</span>
-        {profile?.role === "volunteer" ? (
-          <>
-            <span className="text-gold text-[2.6rem] font-black leading-none my-1">
-              {viaHours ?? 0} <span className="text-[1.1rem]">VIA hour{viaHours === 1 ? "" : "s"}</span>
-            </span>
-            <span className="text-sand/70 text-[0.78rem]">Values in Action · {todayLabel()}</span>
-            <button className={cn(btnGold, "mt-3")} onClick={downloadCert}>
-              ⬇️ Download my certificate (PDF)
-            </button>
-          </>
-        ) : (
-          <p className="text-sand text-[0.9rem] mt-1 max-w-[360px]">
-            VIA hour tracking is for volunteers. As an organiser you can run sessions and issue hours.
-          </p>
-        )}
+        <span className="text-gold text-[2.6rem] font-black leading-none my-1">
+          {formatViaHours(viaHours ?? 0)} <span className="text-[1.1rem]">VIA hour{viaHours === 1 ? "" : "s"}</span>
+        </span>
+        <span className="text-sand/70 text-[0.78rem]">Values in Action · {todayLabel()}</span>
+        <button className={cn(btnGold, "mt-3")} onClick={downloadCert}>
+          ⬇️ Download my certificate (PDF)
+        </button>
       </div>
 
       {/* Profile */}

@@ -32,6 +32,14 @@ const BASE_PATH: Record<GameVariant, string> = {
   prod: "/api/game-service/socket.io",
 };
 
+function socketOrigin(): string {
+  if (typeof window === "undefined") return "";
+  // Local Next dev on :3000 is not nginx, so Socket.IO must go straight to the
+  // Docker reverse proxy on port 80. Cookies are host-scoped, not port-scoped.
+  if (window.location.port === "3000") return `${window.location.protocol}//${window.location.hostname}`;
+  return "";
+}
+
 export function createGameClient(
   role: ClientRole,
   roomCode?: string,
@@ -39,7 +47,7 @@ export function createGameClient(
 ): GameClient {
   // host → /host namespace (mahjong board), player → /play namespace (phone UI).
   const namespace = role === "host" ? "/host" : "/play";
-  const socket = io(namespace, {
+  const socket = io(`${socketOrigin()}${namespace}`, {
     path: BASE_PATH[variant],
     // Allow a polling fallback so phones on flaky mobile networks (and
     // backgrounded Safari) always reconnect; reconnect forever with backoff.

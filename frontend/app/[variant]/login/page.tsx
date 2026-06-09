@@ -13,17 +13,17 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
-  // Already signed in → straight to the dashboard.
+  // Already signed in → straight to the /app lobby.
   useEffect(() => {
-    if (!loading && session) router.replace(`/${variant}/dashboard`);
-  }, [loading, session, router, variant]);
+    if (!loading && session) router.replace("/app");
+  }, [loading, session, router]);
 
   const onGoogle = async () => {
     setBusy(true);
     setErr("");
     try {
       const origin = window.location.origin;
-      await signInWithGoogle(`${origin}/${variant}/dashboard`);
+      await signInWithGoogle(`${origin}/app`);
       // Redirects away to Google; nothing else runs here.
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Sign-in failed");

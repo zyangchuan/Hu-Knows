@@ -215,7 +215,7 @@ export default function PhoneView() {
     );
   }
 
-  // ── Game over → your personal VIA certificate ───────────────────────────────
+  // ── Game over → demo certificate or app dashboard handoff ───────────────────
   if (gameOver) {
     const sorted = [...gameOver.tableSummary].sort((a, b) => b.wins - a.wins);
     const myName = pairName || "Participant";
@@ -235,16 +235,33 @@ export default function PhoneView() {
           <div className="text-[2.6rem]">🎓</div>
           <h2 className="text-gold text-[1.3rem] font-black text-center">Thanks for playing!</h2>
 
-          {/* Personal VIA certificate card */}
+          {/* Personal VIA record */}
           <div className="w-full max-w-[340px] bg-white/[0.05] border border-[rgba(251,191,36,0.3)] rounded-2xl p-5 flex flex-col items-center gap-1 text-center">
             <span className="text-[0.7rem] uppercase tracking-[2px] text-sand">📜 VIA Contribution</span>
             <span className="text-cream text-[1.2rem] font-extrabold mt-1">{myName}</span>
-            <span className="text-gold text-[2rem] font-black leading-none my-1">{myHours} <span className="text-[1rem]">VIA hour{myHours === 1 ? "" : "s"}</span></span>
+            <span className="text-gold text-[2rem] font-black leading-none my-1">
+              {variant === "demo" ? (
+                <>{myHours} <span className="text-[1rem]">VIA hour{myHours === 1 ? "" : "s"}</span></>
+              ) : (
+                <span className="text-[1.5rem]">VIA credited</span>
+              )}
+            </span>
             <span className="text-sand text-[0.78rem]">{myWins} win{myWins === 1 ? "" : "s"} · {gameOver.hands} hand{gameOver.hands === 1 ? "" : "s"} played</span>
             <span className="text-sand/70 text-[0.72rem] mt-1">Issued by {hostName} · {dateLabel}</span>
-            <button className={cn(btnGold, "w-full mt-3")} onClick={downloadMine}>
-              ⬇️ Download my certificate (PDF)
-            </button>
+            {variant === "demo" ? (
+              <button className={cn(btnGold, "w-full mt-3")} onClick={downloadMine}>
+                ⬇️ Download my certificate (PDF)
+              </button>
+            ) : (
+              <>
+                <p className="text-sand text-[0.78rem] mt-3">
+                  Your VIA minutes were credited to your account.
+                </p>
+                <button className={cn(btnGold, "w-full mt-2")} onClick={() => router.push(`/${variant}/dashboard`)}>
+                  Go to my dashboard →
+                </button>
+              </>
+            )}
           </div>
 
           {/* Compact final scores */}

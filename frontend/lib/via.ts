@@ -32,6 +32,17 @@ export function todayLabel(): string {
   return new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
 
+/** Convert API-backed VIA minutes to display/certificate hours in tenths. */
+export function viaMinutesToHours(minutes: number): number {
+  if (minutes <= 0) return 0;
+  return Math.max(0.1, Math.round((minutes / 60) * 10) / 10);
+}
+
+/** Keep VIA hour labels consistently decimal, e.g. 0.1, 1.0, 2.5. */
+export function formatViaHours(hours: number): string {
+  return hours.toFixed(1);
+}
+
 /** One VIA record per human player, highest VIA hours then most wins first. */
 export function buildViaRecords(tableSummary: TableSummaryRow[], hands: number): ViaRecord[] {
   const hours = sessionViaHours(hands);

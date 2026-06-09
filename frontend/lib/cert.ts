@@ -3,6 +3,7 @@
 // certificate — no backend, no login. (Production tracks real VIA hours via the
 // via-log-service instead.)
 import { jsPDF } from "jspdf";
+import { formatViaHours } from "./via";
 
 export interface CertInput {
   name: string;
@@ -68,7 +69,7 @@ function drawCert(doc: jsPDF, w: number, h: number, c: CertInput) {
   doc.setTextColor(...INK);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(13);
-  const hrs = `${c.hours} VIA hour${c.hours === 1 ? "" : "s"}`;
+  const hrs = `${formatViaHours(c.hours)} VIA hour${c.hours === 1 ? "" : "s"}`;
   doc.text(`participated and contributed ${hrs}`, cx, 268, { align: "center" });
   doc.text(c.sessionTitle || "by learning to recognise and resist scams.", cx, 288, { align: "center" });
 

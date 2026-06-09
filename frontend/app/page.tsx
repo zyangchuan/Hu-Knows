@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
+import Lobby from "./[variant]/page";
 
-// The poster's root link lands here → send everyone to the demo flow.
-// The full-featured (login + VIA) flow lives at /app.
-export default function Home() {
-  redirect("/demo");
-}
+// The poster's root link serves the demo lobby directly. nginx does the same by
+// proxying "/" to the frontend's /demo page; this keeps direct dev-server access
+// on "/" consistent too.
+export default Lobby;
