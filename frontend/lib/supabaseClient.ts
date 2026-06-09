@@ -7,6 +7,7 @@ interface RuntimeConfig {
   supabaseUrl?: string;
   supabaseAnonKey?: string;
   authCookieName?: string;
+  authRedirectUrl?: string;
 }
 
 declare global {
@@ -42,6 +43,18 @@ export const AUTH_COOKIE =
   process.env.AUTH_COOKIE_NAME ||
   runtimeConfig().authCookieName ||
   "access_token";
+
+export function authRedirectUrl(fallbackPath = "/app"): string {
+  const config = runtimeConfig();
+  const redirect =
+    process.env.NEXT_PUBLIC_AUTH_REDIRECT_URL ||
+    process.env.AUTH_REDIRECT_URL ||
+    config.authRedirectUrl;
+
+  if (typeof window === "undefined") return redirect || fallbackPath;
+  if (redirect) return redirect;
+  return `${window.location.origin}${fallbackPath}`;
+}
 
 let client: SupabaseClient | null = null;
 

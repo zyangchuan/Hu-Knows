@@ -35,6 +35,10 @@ export default function RootLayout({
       process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME ||
       process.env.AUTH_COOKIE_NAME ||
       "access_token",
+    authRedirectUrl:
+      process.env.NEXT_PUBLIC_AUTH_REDIRECT_URL ||
+      process.env.AUTH_REDIRECT_URL ||
+      "",
   };
 
   return (

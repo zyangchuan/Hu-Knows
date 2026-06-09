@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { signInWithGoogle, useSession } from "@/lib/auth";
-import { supabaseConfigured } from "@/lib/supabaseClient";
+import { authRedirectUrl, supabaseConfigured } from "@/lib/supabaseClient";
 import { btnGold, cn, feltRadial } from "@/lib/ui";
 
 export default function LoginPage() {
@@ -22,8 +22,7 @@ export default function LoginPage() {
     setBusy(true);
     setErr("");
     try {
-      const origin = window.location.origin;
-      await signInWithGoogle(`${origin}/app`);
+      await signInWithGoogle(authRedirectUrl("/app"));
       // Redirects away to Google; nothing else runs here.
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Sign-in failed");
