@@ -62,7 +62,9 @@ export type ClientMessage =
   | { type: "START_GAME" }
   | { type: "DISCARD"; tile: TileInstance }
   | { type: "CLAIM"; claimType: ClaimType | null; tiles: string[] }
-  | { type: "RESUME" };
+  | { type: "RESUME" }
+  // DEMO only: host ends the continuously-looping session → triggers GAME_OVER + certs.
+  | { type: "END_GAME" };
 
 // ── Messages: server → client ─────────────────────────────────────────────────
 export type ServerMessage =
@@ -104,7 +106,7 @@ export type ServerMessage =
       winType: string;
     }
   | { type: "DRAW"; message: string }
-  | { type: "GAME_OVER"; tableSummary: TableSummaryRow[]; hands: number }
+  | { type: "GAME_OVER"; tableSummary: TableSummaryRow[]; hands: number; hostName: string }
   // Educational pause: a new Pung/Chi this round shows a lesson and freezes play.
   | { type: "LESSON"; lesson: Lesson; until: number }
   | { type: "RESUME_GAME" }

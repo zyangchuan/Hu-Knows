@@ -25,59 +25,73 @@ tags:
 
       | Instance | Namespace | Who | Auth |
       |----------|-----------|-----|------|
-      | **Host** | `/host` | the shared table device | **Required** — Supabase JWT |
-      | **Player** | `/play` | each phone (a youth+elder pair) | None (room code) |
+      | **Host** | `/host` | the shared table device | **Required** — Supabase JWT, **organiser** role |
+      | **Player** | `/play` | each phone (a youth+elder pair) | **Required** — Supabase JWT, **volunteer** role |
 
       All messages travel on a single Socket.IO event named **`message`** whose
       payload is a JSON object `{ "type": "...", ...payload }` (both directions).
 
       **State is Redis-backed.** Room/session state is persisted to Redis
-      (write-through) and rehydrated on demand, so a service restart does not
-      lose active sessions. Every connection MUST send a stable `clientId`
-      (persisted in the client's `localStorage`) in the handshake `auth` — it is
-      required and is used to reclaim the session/seat on reconnect. Each game has
-      a `sessionId` and a status (`lobby` → `active` → `ended`); rejoining is
-      driven by the URL room code and an ended game can still be reopened to view
+      (write-through) and rehydrated on demand, so a service restart does not lose
+      active sessions. Each game has a `sessionId` and a status
+      (`lobby` → `active` → `ended`); an ended game can still be reopened to view
       the result.
 
-      ### Connecting
+      ### Handshake `auth`
+      Every connection sends an `auth` object on the Socket.IO handshake:
+
+      | Field | Required | Purpose |
+      |-------|----------|---------|
+      | `clientId` | **yes** | Stable per-device id (persisted in `localStorage`). Identifies the device and is used to reclaim a player's seat on reconnect. A missing `clientId` rejects the handshake. |
+      | `roomCode` | no | The room to (re)enter. **When present, the server replays that room's current state on connection** (see *Session recovery*). Omitted by the host when creating a fresh table. |
+
       ```js
-      // Host — must be authenticated. Sends the access_token cookie on the
-      // upgrade request; alternatively io(..., { auth: { token } }).
-      // A persistent clientId is REQUIRED in auth on every connection.
       const clientId = localStorage.getItem("hu-client-id") ?? crypto.randomUUID();
+      // Host creating a new table — no roomCode yet:
       const host = io("/host", { path: "/api/game-service/socket.io", withCredentials: true, auth: { clientId } });
-      // Player (phone) — open; joins with the 4-char room code.
-      const play = io("/play", { path: "/api/game-service/socket.io", auth: { clientId } });
-      host.emit("message", { type: "CREATE_ROOM" });
-      host.on("message", (msg) => { /* render */ });
+      host.emit("message", { type: "CREATE_ROOM" }); // → ROOM_CREATED { roomCode }
+      // Entering / re-entering an existing room — pass its code so state is replayed:
+      const play = io("/play", { path: "/api/game-service/socket.io", withCredentials: true, auth: { clientId, roomCode } });
       ```
 
-      ### Authentication (host only)
-      The `/host` namespace is gated by a handshake middleware that verifies a
-      **Supabase JWT (HS256)** — the same `access_token` cookie used by
-      user-service. The token is read from (in order): the `access_token`
-      cookie, the Socket.IO `auth.token` payload, or an
-      `Authorization: Bearer <token>` header. A missing/invalid token rejects
-      the handshake with a `connect_error` (`Unauthorized: ...`) and the socket
-      never connects. The `/play` namespace is unauthenticated by design
-      (co-located game, no anti-cheat needed). For local dev without Supabase,
-      set `HOST_AUTH_ENABLED=false` to bypass host auth.
+      ### Authentication & roles
+      Both namespaces are gated by a handshake middleware that verifies a
+      **Supabase JWT** against the project's **JWKS** (asymmetric ES256/RS256 — the
+      access token signed by the Supabase JWT Signing Key). The token is read from
+      (in order): the `access_token` cookie (sent with `withCredentials: true`), the
+      Socket.IO `auth.token` payload, or an `Authorization: Bearer <token>` header.
+      The caller's **role** is then resolved from user-service (gRPC) and must match
+      the namespace: **`/host` requires `organiser`, `/play` requires `volunteer`**.
+      A missing/invalid token or wrong role rejects the handshake with a
+      `connect_error` and the socket never connects.
+
+      ### Session recovery (refresh / reconnect)
+      Recovery is **driven by the room code**, which the client should keep in its
+      URL. On reconnect, connect with `auth: { clientId, roomCode }` and the server
+      replays the current state — no rejoin message is sent:
+      - **Host** → `LOBBY_UPDATE` (seats), plus `STATE_UPDATE` if a game is running.
+      - **Player** → if `clientId` already owns a seat: `SEAT_ASSIGNED` +
+        `LOBBY_UPDATE` + `STATE_UPDATE` + `DEAL` (+ `YOUR_TURN` if it's their turn).
+        Otherwise only the public `LOBBY_UPDATE`/`STATE_UPDATE`, and the player
+        takes a seat with `JOIN_ROOM`.
+
+      A connection that omits `roomCode` gets no replay (the host then sends
+      `CREATE_ROOM`). Keep the room code in the page URL so a browser refresh
+      re-sends it in the handshake and the lobby/seat is restored.
 
       ### Client → Server messages
-      **Host (`/host`) may send:** `CREATE_ROOM`, `REJOIN_HOST`, `ADD_BOT`,
-      `START_GAME`, `RESUME`.
+      **Host (`/host`) may send:** `CREATE_ROOM`, `ADD_BOT`, `START_GAME`, `RESUME`.
       **Player (`/play`) may send:** `JOIN_ROOM`, `DISCARD`, `CLAIM`.
       A message sent on the wrong namespace is rejected with an `ERROR` reply.
+      (There is no rejoin message — recovery is via the handshake `roomCode` above.)
 
       | Type | Payload | Sent by |
       |------|---------|---------|
       | `CREATE_ROOM` | — | host |
-      | `REJOIN_HOST` | `{ roomCode }` | host (reconnect) |
       | `ADD_BOT` | `{ seat }` | host |
       | `START_GAME` | — (auto-fills empty seats with bots) | host |
-      | `RESUME` | — (skip the educational pause) | host |
-      | `JOIN_ROOM` | `{ roomCode, pairName }` | player |
+      | `RESUME` | — (continue past a lesson pause / to the next hand) | host |
+      | `JOIN_ROOM` | `{ roomCode, pairName }` | player (first-time seat) |
       | `DISCARD` | `{ tile }` | player (turn action) |
       | `CLAIM` | `{ claimType: "PUNG"\|"CHI"\|"HU"\|null, tiles }` | player (`null` = pass) |
 
@@ -379,13 +393,14 @@ components:
       type: object
       description: >-
         Client → server message (Socket.IO `message` event). The `type`
-        determines the remaining fields. Host-only: CREATE_ROOM, REJOIN_HOST,
-        ADD_BOT, START_GAME, RESUME. Player-only: JOIN_ROOM, DISCARD, CLAIM.
+        determines the remaining fields. Host-only: CREATE_ROOM, ADD_BOT,
+        START_GAME, RESUME. Player-only: JOIN_ROOM, DISCARD, CLAIM. (Recovery is
+        via the handshake `roomCode`, not a message.)
       required: [type]
       properties:
         type:
           type: string
-          enum: [CREATE_ROOM, REJOIN_HOST, JOIN_ROOM, ADD_BOT, START_GAME, DISCARD, CLAIM, RESUME]
+          enum: [CREATE_ROOM, JOIN_ROOM, ADD_BOT, START_GAME, DISCARD, CLAIM, RESUME]
         roomCode: { type: string, example: "AUDC" }
         pairName: { type: string, example: "Sarah & Mdm Tan" }
         seat: { type: integer }

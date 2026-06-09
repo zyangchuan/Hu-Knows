@@ -49,7 +49,9 @@ export default function SeatBlock({
       </div>
 
       {melds.length > 0 && (
-        <div className="flex gap-1.5 flex-wrap justify-center max-w-[26vw]">
+        // Single horizontal row (no wrap) so claimed Pung/Chi sets expand
+        // sideways instead of stacking vertically into the centre of the table.
+        <div className="flex gap-1.5 flex-nowrap justify-center">
           {melds.map((m, i) => (
             <MeldGroup key={i} meld={m} size={size} />
           ))}

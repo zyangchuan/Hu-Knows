@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package vialogservice;
+
+// gRPC interface for the via-log-service.
+service ViaLog {
+  // Add a non-negative number of minutes to a user's current VIA total.
+  // Creates the user's row if it does not exist yet. Returns the new total.
+  rpc AddViaMinutes(AddViaMinutesRequest) returns (ViaMinutes);
+}
+
+message AddViaMinutesRequest {
+  string supabase_user_id = 1;
+  // Minutes to add; must be >= 0 (validated server-side).
+  int32 minutes = 2;
+}
+
+message ViaMinutes {
+  string supabase_user_id = 1;
+  int32 via_minutes = 2;
+}

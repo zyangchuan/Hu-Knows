@@ -38,6 +38,42 @@
   --animate-pop-in: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+/* ─── Safe-area insets (viewport-fit=cover) ───────────────────────────────────
+   The app renders edge-to-edge under the notch / Dynamic Island / home indicator,
+   so chrome must pad for it. These bake a base padding + the relevant inset so a
+   bar's background still extends into the inset while its content stays clear.
+   Defined unlayered so they win over Tailwind's @layer padding utilities. */
+.appbar {
+  padding-top: calc(0.5rem + env(safe-area-inset-top));
+  padding-bottom: 0.5rem;
+  padding-left: calc(0.9rem + env(safe-area-inset-left));
+  padding-right: calc(0.9rem + env(safe-area-inset-right));
+}
+.botbar {
+  padding-top: 0.5rem;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  padding-left: calc(0.9rem + env(safe-area-inset-left));
+  padding-right: calc(0.9rem + env(safe-area-inset-right));
+}
+/* Horizontal gutter + side insets — for full-bleed content (the iPad table in
+   landscape, where the notch sits on a side). Base gutter survives on devices
+   with no inset. */
+.safe-x {
+  padding-left: calc(0.75rem + env(safe-area-inset-left));
+  padding-right: calc(0.75rem + env(safe-area-inset-right));
+}
+/* Extra bottom room on scrollable screens so buttons clear the home indicator. */
+.safe-pb {
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+}
+/* All-sides gutter + insets — for centered full-screen panels (lobby/join). */
+.safe-pad {
+  padding-top: calc(1.5rem + env(safe-area-inset-top));
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  padding-left: calc(1.5rem + env(safe-area-inset-left));
+  padding-right: calc(1.5rem + env(safe-area-inset-right));
+}
+
 @keyframes tile-pulse {
   0%, 100% { box-shadow: 0 0 0 2px var(--color-gold), 0 0 14px rgba(251, 191, 36, 0.35); }
   50%      { box-shadow: 0 0 0 3px var(--color-gold), 0 0 24px rgba(251, 191, 36, 0.55); }
@@ -122,3 +158,10 @@ html, body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(212, 180, 131, 0.25); border-radius: 2px; }
+
+/* Certificate print: hide controls, white page. */
+@media print {
+  .no-print { display: none !important; }
+  html, body { background: #fff !important; }
+  .cert-sheet { box-shadow: none !important; width: 100% !important; max-width: 100% !important; }
+}

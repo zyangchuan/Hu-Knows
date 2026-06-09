@@ -4,19 +4,23 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
 } from '@nestjs/websockets';
-import type { Socket } from 'socket.io';
+import type { Namespace, Socket } from 'socket.io';
 
+import { WsAuthMiddleware } from '../auth/ws-auth.middleware';
+import { VOLUNTEER_ROLE } from '../user-client/user-profile.types';
 import { GameService } from './game.service';
 import type { ClientMessage } from './engine/protocol';
 
 /**
  * PLAYER WebSocket — each phone (a youth+elder pair sharing one seat).
  *
- * Socket.IO namespace `/play` on path `/api/game-service/socket.io`. No auth:
- * players join a room with a 4-char code (the Kahoot-style join). A phone is a
+ * Socket.IO namespace `/play` on path `/api/game-service/socket.io`. The
+ * handshake is gated by the Supabase JWT auth middleware and requires a
+ * volunteer. Players join a room with a 4-char code (the Kahoot-style join). A phone is a
  * thin renderer — it only ever sends two game actions. The handshake `auth`
  * carries a stable `clientId` (required) and an optional `roomCode`; when a
  * `roomCode` is present the current state (and the player's seat/hand, if any)
@@ -30,10 +34,20 @@ import type { ClientMessage } from './engine/protocol';
   path: '/api/game-service/socket.io',
   cors: { origin: '*', credentials: true },
 })
-export class PlayerGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class PlayerGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(PlayerGateway.name);
 
-  constructor(private readonly games: GameService) {}
+  constructor(
+    private readonly games: GameService,
+    private readonly wsAuth: WsAuthMiddleware,
+  ) {}
+
+  afterInit(server: Namespace): void {
+    // Players (phones) must be authenticated volunteers.
+    server.use(this.wsAuth.create(VOLUNTEER_ROLE));
+  }
 
   handleConnection(client: Socket): void {
     const auth = client.handshake.auth as

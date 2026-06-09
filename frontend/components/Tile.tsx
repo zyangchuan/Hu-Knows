@@ -4,6 +4,11 @@ import TileIcon from "./TileIcon";
 
 export type TileSize = "s" | "m" | "l" | "xl";
 
+// Render the custom transparent icon art from /public/tiles/icons/<base>.svg,
+// keeping our own corner number + bottom word over it.
+// Set NEXT_PUBLIC_TILE_STYLE=lucide to fall back to the built-in lucide renderer.
+const USE_TILE_IMAGES = process.env.NEXT_PUBLIC_TILE_STYLE !== "lucide";
+
 interface TileProps {
   tileId?: string;
   size?: TileSize;
@@ -59,6 +64,59 @@ export default function Tile({ tileId, size = "m", selected, glow, dim, back, on
   const data = baseId ? TILE_DATA[baseId] : undefined;
   if (!data || !baseId) return null;
   const suit = SUIT[data.suit];
+
+  // Custom-icon mode: the SVGs in /tiles/icons are transparent, icon-only, on the
+  // same 200×270 canvas the tile uses — so we render the icon full-bleed and keep
+  // our own crisp corner number + bottom word over it.
+  if (USE_TILE_IMAGES) {
+    return (
+      <div
+        title={`${data.label} — ${data.tip}`}
+        onClick={onClick}
+        className={cn(
+          BASE,
+          sz.box,
+          suit.bg,
+          onClick && "cursor-pointer hover:-translate-y-1",
+          selected && "-translate-y-3 [box-shadow:0_0_0_3px_var(--color-gold),0_10px_18px_rgba(0,0,0,0.45)] z-10",
+          selected && onClick && "hover:-translate-y-3.5",
+          glow &&
+            "animate-tile-pulse [box-shadow:0_0_0_2px_var(--color-gold),0_0_14px_rgba(251,191,36,0.35),0_1px_2px_rgba(0,0,0,0.22)]",
+          dim && "opacity-40",
+        )}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/tiles/icons/${baseId}.svg`}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+        />
+        <span
+          className={cn(
+            "absolute top-[2px] left-[4px] font-bold opacity-65 z-10",
+            data.num !== null ? "font-num" : "font-hanzi",
+            sz.num,
+            suit.ink,
+          )}
+        >
+          {data.num !== null ? data.num : data.hanzi}
+        </span>
+        {sz.label !== "hidden" && (
+          <span
+            className={cn(
+              "absolute bottom-[2px] left-0 right-0 z-10 font-semibold tracking-tight leading-none px-0.5 text-center whitespace-nowrap overflow-hidden text-ellipsis",
+              sz.label,
+              suit.ink,
+            )}
+          >
+            {data.label}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

@@ -1,6 +1,10 @@
 // ─── Transport seam ───────────────────────────────────────────────────────────
-// The UI talks to the server-authoritative game-service over Socket.IO at
-// /api/game-service. The game is entirely server-side — there is no client mock.
+// The UI talks to the server-authoritative game-service over Socket.IO (same
+// origin, behind nginx). The game is entirely server-side — there is no mock.
+//
+// Two backends, selected by `variant`:
+//   - "demo" → /api/game-service-demo  (in-memory, no auth — the /demo flow)
+//   - "prod" → /api/game-service        (Redis-backed, host auth — the /prod flow)
 import { io } from "socket.io-client";
 import type { ClientMessage, ServerMessage } from "../types";
 import { getClientId } from "./clientIdentity";
@@ -20,13 +24,41 @@ export interface GameClient {
  */
 export type ClientRole = "host" | "player";
 
-export function createGameClient(role: ClientRole, roomCode?: string): GameClient {
+/** Which game-service backend to talk to. */
+export type GameVariant = "demo" | "prod";
+
+const BASE_PATH: Record<GameVariant, string> = {
+  demo: "/api/game-service-demo/socket.io",
+  prod: "/api/game-service/socket.io",
+};
+
+function socketOrigin(): string {
+  if (typeof window === "undefined") return "";
+  // Local Next dev on :3000 is not nginx, so Socket.IO must go straight to the
+  // Docker reverse proxy on port 80. Cookies are host-scoped, not port-scoped.
+  if (window.location.port === "3000") return `${window.location.protocol}//${window.location.hostname}`;
+  return "";
+}
+
+export function createGameClient(
+  role: ClientRole,
+  roomCode?: string,
+  variant: GameVariant = "prod",
+): GameClient {
   // host → /host namespace (mahjong board), player → /play namespace (phone UI).
   const namespace = role === "host" ? "/host" : "/play";
-  const socket = io(namespace, {
-    path: "/api/game-service/socket.io",
-    transports: ["websocket"],
-    // withCredentials sends the access_token cookie if host auth is re-enabled.
+  const socket = io(`${socketOrigin()}${namespace}`, {
+    path: BASE_PATH[variant],
+    // Allow a polling fallback so phones on flaky mobile networks (and
+    // backgrounded Safari) always reconnect; reconnect forever with backoff.
+    transports: ["websocket", "polling"],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 4000,
+    randomizationFactor: 0.4,
+    timeout: 8000,
+    // withCredentials sends the access_token cookie if host auth is enabled (prod).
     withCredentials: true,
     // clientId identifies the device; roomCode (when set) makes the server replay
     // the current game state on connection — no rejoin message needed.
@@ -40,6 +72,16 @@ export function createGameClient(role: ClientRole, roomCode?: string): GameClien
   });
   socket.on("connect", () => statusHandlers.forEach((h) => h(true)));
   socket.on("disconnect", () => statusHandlers.forEach((h) => h(false)));
+  socket.io.on("reconnect", () => statusHandlers.forEach((h) => h(true)));
+
+  // iOS Safari suspends sockets when backgrounded; nudge a reconnect the moment
+  // the tab/app is visible again rather than waiting for a failed ping.
+  const onVisible = () => {
+    if (typeof document !== "undefined" && document.visibilityState === "visible" && !socket.connected) {
+      socket.connect();
+    }
+  };
+  if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisible);
 
   return {
     send(msg) {
@@ -58,6 +100,7 @@ export function createGameClient(role: ClientRole, roomCode?: string): GameClien
       return socket.connected;
     },
     close() {
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisible);
       socket.close();
       handlers.clear();
       statusHandlers.clear();

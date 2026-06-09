@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto';
 import type { Socket } from 'socket.io';
 
 import { RedisService } from '../redis/redis.service';
+import { ViaLogClient } from '../via-log-client/via-log.client';
 import { botClaim, botTurn } from './engine/bot';
 import { buildLesson } from './engine/education';
 import { GameEngine, type EngineSeat, type EngineSnapshot } from './engine/engine';
@@ -33,6 +34,9 @@ interface ServerSeat extends SeatInfo {
   // Stable client id (from localStorage) of the phone owning this seat — used to
   // reclaim the seat on reconnect. Persisted; null for bots.
   clientId: string | null;
+  // Supabase user id of the volunteer in this seat (from the JWT) — used to
+  // credit VIA minutes when the game ends. Persisted; null for bots.
+  supabaseUserId: string | null;
 }
 
 /** JSON-serializable room snapshot stored in Redis. */
@@ -41,6 +45,8 @@ interface RoomSnapshot {
   sessionId: string;
   status: SessionStatus;
   started: boolean;
+  startedAt: number | null;
+  hostName: string;
   seats: ServerSeat[];
   shownLessons: string[];
   engine: EngineSnapshot | null;
@@ -50,19 +56,42 @@ const ROOM_TTL_SECONDS = 7200; // 2h GC backstop
 const roomKey = (code: string) => `game:room:${code}`;
 const clientKey = (clientId: string) => `game:client:${clientId}`;
 
+// DEMO: there is no host login, so we mint a plausible volunteer/coordinator name
+// per room. It's broadcast in GAME_OVER so the iPad dashboard and every phone
+// print the same issuer on the VIA certificates.
+const HOST_NAMES = [
+  'Ms Rachel Lim',
+  'Mr Tan Wei Ming',
+  'Mdm Siti Nurhaliza',
+  'Mr Raj Kumar',
+  'Ms Chloe Wong',
+  'Mr Daniel Ng',
+  'Ms Aisyah Rahman',
+  'Mr Marcus Lee',
+  'Ms Priya Nair',
+  'Mr Jonathan Goh',
+];
+function randomHostName(): string {
+  return HOST_NAMES[Math.floor(Math.random() * HOST_NAMES.length)];
+}
+
 // ── A single table/room ───────────────────────────────────────────────────────
 class Room {
   code: string;
   sessionId = '';
   status: SessionStatus = 'lobby';
+  hostName: string = randomHostName(); // DEMO issuer name (overwritten on restore)
   hostClientId: string | null = null; // live socket id of the host connection
   phoneClientBySeat: Record<number, string> = {}; // seat → live socket id
   seats: ServerSeat[] = [];
   engine: GameEngine | null = null;
   started = false;
+  startedAt: number | null = null; // epoch ms when the game started
   hostDeleteTimer: ReturnType<typeof setTimeout> | null = null;
   // Fired after any state change so the service can write-through to Redis.
   onChange: (() => void) | null = null;
+  // Fired once when the game ends, so the service can credit VIA minutes.
+  onGameOver: (() => void) | null = null;
   // Lessons shown this hand (dedup) + the active learning-pause state.
   private shownLessons = new Set<string>();
   private pendingResume: (() => void) | null = null;
@@ -70,13 +99,22 @@ class Room {
   constructor(
     code: string,
     private send: (clientId: string, msg: ServerMessage) => void,
+    // Live socket ids currently attached to this room (host + phones + any
+    // reconnected/spectating socket). Lets broadcasts survive a momentarily
+    // stale seat→socket mapping.
+    private listSockets: () => string[] = () => [],
   ) {
     this.code = code;
   }
 
   broadcastAll(msg: ServerMessage): void {
-    if (this.hostClientId) this.send(this.hostClientId, msg);
-    for (const id of Object.values(this.phoneClientBySeat)) this.send(id, msg);
+    // Deliver to every live socket in the room, deduped — so a stale
+    // seat→socket entry (e.g. just after a phone reconnect) never drops a
+    // broadcast like GAME_OVER.
+    const ids = new Set<string>(this.listSockets());
+    if (this.hostClientId) ids.add(this.hostClientId);
+    for (const id of Object.values(this.phoneClientBySeat)) ids.add(id);
+    for (const id of ids) this.send(id, msg);
     // Every broadcast follows a state change — persist the new snapshot.
     this.onChange?.();
   }
@@ -97,7 +135,7 @@ class Room {
 
   addBot(seat: number): void {
     if (this.seats.find((s) => s.seat === seat)) return;
-    this.seats.push({ seat, pairName: `Bot ${seat}`, connected: true, isBot: true, clientId: null });
+    this.seats.push({ seat, pairName: `Bot ${seat}`, connected: true, isBot: true, clientId: null, supabaseUserId: null });
     this.seats.sort((a, b) => a.seat - b.seat);
     this.broadcastLobby();
   }
@@ -106,6 +144,7 @@ class Room {
     if (this.seats.length < 4) return { error: 'Need 4 seats' };
     if (this.started) return { error: 'Already started' };
     this.started = true;
+    this.startedAt = Date.now();
     this.status = 'active';
 
     const engineSeats: EngineSeat[] = this.seats.map((s) => ({ seat: s.seat, pairName: s.pairName, isBot: s.isBot }));
@@ -190,7 +229,8 @@ class Room {
     });
     engine.on('game_over', (data) => {
       this.status = 'ended';
-      this.broadcastAll({ type: 'GAME_OVER', ...data });
+      this.broadcastAll({ type: 'GAME_OVER', ...data, hostName: this.hostName });
+      this.onGameOver?.(); // credit volunteers' VIA minutes
     });
   }
 
@@ -261,6 +301,10 @@ class Room {
         if (!isHost) return this.send(fromClientId, { type: 'ERROR', message: 'Host only' });
         this.hostContinue(); // continue past a lesson pause, or to the next hand
         break;
+      case 'END_GAME':
+        if (!isHost) return this.send(fromClientId, { type: 'ERROR', message: 'Host only' });
+        this.engine?.endGameNow(); // stop the looping session → emits GAME_OVER
+        break;
       default:
         break;
     }
@@ -273,6 +317,8 @@ class Room {
       sessionId: this.sessionId,
       status: this.status,
       started: this.started,
+      startedAt: this.startedAt,
+      hostName: this.hostName,
       seats: this.seats,
       shownLessons: [...this.shownLessons],
       engine: this.engine ? this.engine.serialize() : null,
@@ -284,6 +330,8 @@ class Room {
     this.sessionId = snap.sessionId;
     this.status = snap.status;
     this.started = snap.started;
+    this.startedAt = snap.startedAt ?? null;
+    this.hostName = snap.hostName ?? this.hostName;
     this.seats = snap.seats.map((s) => ({ ...s, connected: false }));
     this.shownLessons = new Set(snap.shownLessons);
     if (snap.engine) {
@@ -303,7 +351,10 @@ export class GameService {
   private readonly clientRoom = new Map<string, string>();
   private readonly sockets = new Map<string, Socket>();
 
-  constructor(private readonly redis: RedisService) {}
+  constructor(
+    private readonly redis: RedisService,
+    private readonly viaLog: ViaLogClient,
+  ) {}
 
   /** Address a client by its socket id, regardless of which namespace it's on. */
   private readonly send = (clientId: string, msg: ServerMessage): void => {
@@ -316,12 +367,48 @@ export class GameService {
     return (this.sockets.get(socketId)?.data as { clientId?: string } | undefined)?.clientId;
   }
 
+  /** Supabase user id of a live socket (set by the auth middleware from the JWT). */
+  private supabaseUserIdOf(socketId: string): string | undefined {
+    return (this.sockets.get(socketId)?.data as { user?: { supabaseUserId?: string } } | undefined)
+      ?.user?.supabaseUserId;
+  }
+
   // ── Redis store helpers ────────────────────────────────────────────────────
   private newRoom(code: string): Room {
-    const room = new Room(code, this.send);
+    const room = new Room(code, this.send, () => this.roomSocketIds(code));
     room.onChange = () => this.persist(room);
+    room.onGameOver = () => this.creditVolunteers(room);
     this.rooms.set(code, room);
     return room;
+  }
+
+  /**
+   * On game over, credit each volunteer's VIA minutes with the gameplay duration
+   * (now − game start). Fire-and-forget per volunteer so a gRPC hiccup never
+   * blocks the game-over flow.
+   */
+  private creditVolunteers(room: Room): void {
+    if (!room.startedAt) return;
+    const minutes = Math.ceil((Date.now() - room.startedAt) / 60000);
+    if (minutes <= 0) return;
+    for (const seat of room.seats) {
+      if (seat.isBot || !seat.supabaseUserId) continue;
+      this.viaLog
+        .addViaMinutes(seat.supabaseUserId, minutes)
+        .catch((err) =>
+          this.logger.error(
+            `Failed to credit VIA minutes for ${seat.supabaseUserId} in room ${room.code}: ${err.message}`,
+          ),
+        );
+    }
+    this.logger.log(`Credited ${minutes} VIA minute(s) to volunteers in room ${room.code}`);
+  }
+
+  /** Live socket ids currently attached to a room (from clientRoom). */
+  private roomSocketIds(code: string): string[] {
+    const ids: string[] = [];
+    for (const [sid, c] of this.clientRoom) if (c === code) ids.push(sid);
+    return ids;
   }
 
   /** Return the cached live room, or rehydrate it from Redis (or undefined). */
@@ -416,6 +503,8 @@ export class GameService {
 
     if (seat) {
       seat.connected = true;
+      const supabaseUserId = this.supabaseUserIdOf(socketId);
+      if (supabaseUserId) seat.supabaseUserId = supabaseUserId;
       room.phoneClientBySeat[seat.seat] = socketId;
       this.bindClient(socketId, room, 'player');
       this.send(socketId, { type: 'SEAT_ASSIGNED', seat: seat.seat, pairName: seat.pairName ?? '' });
@@ -522,6 +611,7 @@ export class GameService {
 
   private joinRoom(room: Room, clientId: string, pairName: string): void {
     const stable = this.stableId(clientId);
+    const supabaseUserId = this.supabaseUserIdOf(clientId);
     // Reclaim an existing seat by stable client id (preferred) or pair name.
     const existing = room.seats.find(
       (s) => !s.isBot && ((stable && s.clientId === stable) || s.pairName === pairName),
@@ -530,6 +620,7 @@ export class GameService {
       existing.connected = true;
       existing.pairName = pairName;
       if (stable) existing.clientId = stable;
+      if (supabaseUserId) existing.supabaseUserId = supabaseUserId;
       room.phoneClientBySeat[existing.seat] = clientId;
       this.clientRoom.set(clientId, room.code);
       this.bindClient(clientId, room, 'player');
@@ -548,8 +639,11 @@ export class GameService {
     }
 
     const taken = room.seats.map((s) => s.seat);
+    // Seat preference: South (1) first, so a single demo player sits at the
+    // bottom of the iPad table facing the judge; the rest fill in around.
+    const SEAT_ORDER = [1, 0, 2, 3];
     let seat: number | null = null;
-    for (let i = 0; i < 4; i++) {
+    for (const i of SEAT_ORDER) {
       if (!taken.includes(i)) {
         seat = i;
         break;
@@ -560,7 +654,14 @@ export class GameService {
       return;
     }
 
-    room.seats.push({ seat, pairName, connected: true, isBot: false, clientId: stable ?? null });
+    room.seats.push({
+      seat,
+      pairName,
+      connected: true,
+      isBot: false,
+      clientId: stable ?? null,
+      supabaseUserId: supabaseUserId ?? null,
+    });
     room.seats.sort((a, b) => a.seat - b.seat);
     room.phoneClientBySeat[seat] = clientId;
     this.clientRoom.set(clientId, room.code);

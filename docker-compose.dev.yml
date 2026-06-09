@@ -2,15 +2,15 @@
 # this is NOT merged automatically — pass it explicitly:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 #
-# Builds the `dev` image targets, bind-mounts source for hot reloading, and
-# publishes the frontend dev server for direct access.
+# Builds the `dev` image targets and bind-mounts source for hot reloading.
+# The frontend dev server stays internal; use nginx on port 80.
 services:
   frontend:
     build:
       target: dev
+    env_file:
+      - ./.env.dev
     command: npm run dev
-    ports:
-      - "3000:3000"
     volumes:
       # Bind-mount source for hot reloading...
       - ./frontend:/app
@@ -43,19 +43,28 @@ services:
     build:
       target: dev
     env_file:
-      # Supplies SUPABASE_JWT_SECRET / SUPABASE_JWT_AUDIENCE / AUTH_COOKIE_NAME
-      # used to auth the host WebSocket, HOST_AUTH_ENABLED, plus REDIS_URL.
+      # Supplies SUPABASE_URL / SUPABASE_JWT_AUDIENCE / AUTH_COOKIE_NAME used to
+      # auth the host+player WebSockets, plus REDIS_URL.
       - ./.env.dev
     volumes:
       - ./services/game-service/src:/app/src
+      - ./services/game-service/proto:/app/proto
+      - /app/node_modules
+
+  game-service-demo:
+    build:
+      target: dev
+    # No env_file: the demo needs no Supabase/Redis/DB (in-memory, auth off).
+    volumes:
+      - ./services/game-service-demo/src:/app/src
       - /app/node_modules
 
   via-log-service:
     build:
       target: dev
     env_file:
-      # DATABASE_URL/SSL, SUPABASE_JWT_SECRET/AUDIENCE, AUTH_COOKIE_NAME,
-      # and USER_SERVICE_GRPC_URL (user-service:50051).
+      # DATABASE_URL/SSL, SUPABASE_URL, SUPABASE_JWT_AUDIENCE, AUTH_COOKIE_NAME.
+      # (The user-service gRPC address is fixed to user-service:50051 in config.)
       - ./.env.dev
     volumes:
       - ./services/via-log-service/src:/app/src

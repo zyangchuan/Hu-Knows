@@ -45,7 +45,7 @@ function ClaimButton({
     <button className={cn(klass, "flex items-center gap-2 !px-3 !py-1.5")} onClick={onClick}>
       <span className="flex flex-col items-start leading-tight">
         <span className="text-sm font-extrabold whitespace-nowrap">{verb}</span>
-        <span className="text-[0.65rem] font-semibold opacity-80">{term}</span>
+        {term && <span className="text-[0.65rem] font-semibold opacity-80">{term}</span>}
       </span>
       {tiles && tiles.length > 0 && (
         <span className="flex gap-0.5">
@@ -129,8 +129,8 @@ export default function ActionZone({
                 <ClaimButton
                   key={`pung-${i}`}
                   klass={btnRed}
-                  verb="Grab it 🚨"
-                  term="Pung"
+                  verb="Pung"
+                  term=""
                   tiles={dBase ? [dBase, dBase, dBase] : undefined}
                   onClick={() => onClaim("PUNG", c.tiles)}
                 />
@@ -156,19 +156,26 @@ export default function ActionZone({
   }
 
   // ── My turn ─────────────────────────────────────────────────────────────────
-  if (isMyTurn) {
+  // Discard lives here in the bottom bar, in the same spot as Pung/Chi: tap a
+  // tile in your hand to select it, then press Throw. (Hu shows too if you can win.)
+  if (isMyTurn && (canWin || mustDiscard)) {
+    const showThrow = mustDiscard && !!selectedTile;
     return (
-      <div className="flex flex-col gap-2 py-1">
-        <div className="flex gap-2 justify-center items-center flex-wrap">
-          {canWin && <ClaimButton klass={btnGold} verb="Win! 🎉" term="胡 Hu" onClick={onHu} />}
-          {mustDiscard && selectedTile && (
-            <button className={cn(btnRed, "flex items-center gap-2 !py-1.5")} onClick={() => onDiscard(selectedTile)}>
-              <span className="font-extrabold">Discard</span>
-              <Tile tileId={selectedTile} size="s" />
-            </button>
-          )}
-          {mustDiscard && !selectedTile && <p className="text-[0.8rem] text-sand text-center">Tap a tile to discard</p>}
-        </div>
+      <div className="flex gap-2 items-center justify-center py-0.5 flex-wrap">
+        {canWin && <ClaimButton klass={btnGold} verb="Win! 🎉" term="胡 Hu" onClick={onHu} />}
+        {showThrow ? (
+          // Full button only appears once a tile is picked — so it never blocks the hand.
+          <button className={cn(btnRed, "flex items-center gap-2 !px-5 !py-1.5")} onClick={() => onDiscard(selectedTile!)}>
+            <span className="text-xl">🚮</span>
+            <span className="flex flex-col items-start leading-tight">
+              <span className="text-sm font-extrabold">Throw</span>
+              <span className="text-[0.65rem] font-semibold opacity-80">丢 discard</span>
+            </span>
+            <span className="flex">
+              <Tile tileId={selectedTile!} size="s" />
+            </span>
+          </button>
+        ) : null}
       </div>
     );
   }
