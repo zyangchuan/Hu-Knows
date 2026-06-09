@@ -21,4 +21,9 @@ export default () => ({
     // the caller's role for the host/player namespace auth.
     grpcUrl: 'user-service:50051',
   },
+  viaLogService: {
+    // via-log-service gRPC endpoint (Docker Compose service name) — used to
+    // credit volunteers' VIA minutes when a game ends.
+    grpcUrl: 'via-log-service:50051',
+  },
 });
