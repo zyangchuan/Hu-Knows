@@ -43,11 +43,12 @@ services:
     build:
       target: dev
     env_file:
-      # Supplies SUPABASE_JWT_SECRET / SUPABASE_JWT_AUDIENCE / AUTH_COOKIE_NAME
-      # used to auth the host WebSocket, HOST_AUTH_ENABLED, plus REDIS_URL.
+      # Supplies SUPABASE_URL / SUPABASE_JWT_AUDIENCE / AUTH_COOKIE_NAME used to
+      # auth the host+player WebSockets, plus REDIS_URL.
       - ./.env.dev
     volumes:
       - ./services/game-service/src:/app/src
+      - ./services/game-service/proto:/app/proto
       - /app/node_modules
 
   game-service-demo:
@@ -62,8 +63,8 @@ services:
     build:
       target: dev
     env_file:
-      # DATABASE_URL/SSL, SUPABASE_JWT_SECRET/AUDIENCE, AUTH_COOKIE_NAME,
-      # and USER_SERVICE_GRPC_URL (user-service:50051).
+      # DATABASE_URL/SSL, SUPABASE_URL, SUPABASE_JWT_AUDIENCE, AUTH_COOKIE_NAME.
+      # (The user-service gRPC address is fixed to user-service:50051 in config.)
       - ./.env.dev
     volumes:
       - ./services/via-log-service/src:/app/src

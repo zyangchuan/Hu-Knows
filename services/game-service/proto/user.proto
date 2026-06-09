@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package userservice;
+
+// gRPC interface for the user-service.
+service UserProfiles {
+  // Fetch a single user profile by its Supabase user id.
+  rpc GetUserBySupabaseId(GetUserBySupabaseIdRequest) returns (UserProfile);
+}
+
+message GetUserBySupabaseIdRequest {
+  string supabase_user_id = 1;
+}
+
+message UserProfile {
+  string id = 1;
+  string supabase_user_id = 2;
+  string name = 3;
+  string email = 4;
+  Role role = 6;
+  string organisation = 7;
+  string created_at = 5; // ISO-8601 timestamp
+}
+
+// Role assigned to a user profile.
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  VOLUNTEER = 1;
+  ORGANISER = 2;
+}

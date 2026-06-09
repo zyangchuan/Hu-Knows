@@ -21,7 +21,8 @@ export default () => ({
     cookieName: process.env.AUTH_COOKIE_NAME ?? 'access_token',
   },
   userService: {
-    // user-service gRPC endpoint; via-log-service is a client (no gRPC server).
-    grpcUrl: process.env.USER_SERVICE_GRPC_URL ?? 'user-service:50051',
+    // user-service gRPC endpoint (Docker Compose service name); via-log-service
+    // is a client (no gRPC server).
+    grpcUrl: 'user-service:50051',
   },
 });

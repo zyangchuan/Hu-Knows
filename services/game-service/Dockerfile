@@ -27,6 +27,8 @@ FROM base AS runner
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+# The user-service .proto contract is loaded at runtime by the gRPC client.
+COPY --from=build /app/proto ./proto
 COPY package.json ./
 
 RUN addgroup -S nodejs -g 1001 && adduser -S nestjs -u 1001

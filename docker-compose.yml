@@ -46,14 +46,13 @@ services:
       - game-redis
     restart: unless-stopped
 
-  # DEMO game-service — a fully independent copy: in-memory (no Redis), host auth
-  # off, served on its own path /api/game-service-demo. Used only by the /demo flow.
+  # DEMO game-service — a fully independent copy: in-memory (no Redis), no auth on
+  # the WebSockets, served on its own path /api/game-service-demo. Used only by
+  # the /demo flow.
   game-service-demo:
     container_name: game-service-demo
     build:
       context: ./services/game-service-demo
-    environment:
-      HOST_AUTH_ENABLED: "false"
     expose:
       - "8000"
     restart: unless-stopped
