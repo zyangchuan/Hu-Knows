@@ -61,7 +61,7 @@ export default function LearnPage() {
           <Panel
             emoji="🀄"
             title="How to play"
-            body="Hu Knows is Mahjong where every tile is a scam tactic or a defence. You'll learn the 4 moves — it takes a minute."
+            body="Hu Knows is Mahjong where every tile is a scam tactic or a defence. You'll learn the 4 moves and it takes a minute."
           >
             <div className="flex flex-wrap justify-center gap-2 mt-1">
               {["A1", "A4", "B6", "A8"].map((t) => <Tile key={t} tileId={t} size="m" />)}
@@ -72,7 +72,7 @@ export default function LearnPage() {
         {step === "discard" && (
           <Panel
             emoji="🖐️"
-            title="1 · Your turn — discard"
+            title="1 · Your turn: discard"
             body={acted ? "Nice! That's a discard. On your turn you always throw one tile away." : "On your turn you draw a tile, then throw one away. Tap a tile, then press Throw."}
           >
             <div className="flex flex-wrap justify-center gap-1.5 mt-1">
@@ -92,7 +92,7 @@ export default function LearnPage() {
                 className={cn(btnGold, "mt-2", !picked && "opacity-40 pointer-events-none")}
                 onClick={() => setActed(true)}
               >
-                🚮 Throw {picked ? `“${label(picked)}”` : "— pick a tile first"}
+                🚮 Throw {picked ? `“${label(picked)}”` : "(pick a tile first)"}
               </button>
             )}
           </Panel>
@@ -101,7 +101,7 @@ export default function LearnPage() {
         {step === "peng" && (
           <ClaimStep
             emoji="✋"
-            title="2 · PENG — three of a kind"
+            title="2 · PENG: three of a kind"
             setup={`South threw “${label("A4")}”. You already hold two of them.`}
             doneText={`PENG! You took all three “${label("A4")}” as a set. Peng = 3 identical tiles.`}
             verb="PENG 碰"
@@ -116,7 +116,7 @@ export default function LearnPage() {
         {step === "chi" && (
           <ClaimStep
             emoji="🔗"
-            title="3 · CHI — a run of three"
+            title="3 · CHI: a run of three"
             setup={`The player on your left threw “${label("A5")}”. You hold “${label("A4")}” and “${label("A6")}”.`}
             doneText="CHI! You made a run 4-5-6 in the same suit. Chi = 3 in a row (only from your left)."
             verb="CHI 吃"
@@ -131,8 +131,8 @@ export default function LearnPage() {
         {step === "hu" && (
           <Panel
             emoji={acted ? "🏆" : "🎯"}
-            title="4 · HU — win!"
-            body={acted ? "胡! You completed your hand and won the round. That's Hu!" : "Finish your whole hand — 4 sets + a pair — to win. You're one tile away, and it just got thrown. Tap HU!"}
+            title="4 · HU: win!"
+            body={acted ? "胡! You completed your hand and won the round. That's Hu!" : "Finish your whole hand (4 sets + a pair) to win. You're one tile away, and it just got thrown. Tap HU!"}
           >
             {/* Your near-complete hand: 3 sets + a pair, with the winning tile incoming. */}
             <div className="flex flex-wrap justify-center items-end gap-2 mt-1">
@@ -145,7 +145,7 @@ export default function LearnPage() {
               <div className="text-[3rem] font-black text-gold animate-hu-bounce mt-1">胡!</div>
             ) : (
               <button className={cn(btnGold, "mt-2")} onClick={() => setActed(true)}>
-                🎉 HU 胡 — win the round
+                🎉 HU 胡: win the round
               </button>
             )}
           </Panel>
@@ -171,7 +171,7 @@ export default function LearnPage() {
           ← Back
         </button>
         {step === "done" ? (
-          <button className={btnGold} onClick={leave}>Got it — let's play →</button>
+          <button className={btnGold} onClick={leave}>Got it, let's play →</button>
         ) : step === "intro" ? (
           <button className={btnGold} onClick={() => go(1)}>Start →</button>
         ) : (

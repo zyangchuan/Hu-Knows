@@ -55,6 +55,13 @@ export interface TableSummaryRow {
   wins: number;
 }
 
+/** One Pung or Chi claimed during the session (drives the end-of-game review). */
+export interface SessionClaim {
+  claimType: 'PUNG' | 'CHI';
+  bases: string[];
+  seat: number;
+}
+
 // ── Messages: client → server ─────────────────────────────────────────────────
 // State is retrieved on connection (clientId + roomCode in the handshake auth), so
 // there is no rejoin message.
@@ -131,7 +138,7 @@ export type ServerMessage =
   | { type: 'DRAW'; message: string }
   // hostName: a random volunteer/coordinator name (server-generated per room) so
   // the host dashboard and every phone print the same issuer on VIA certificates.
-  | { type: 'GAME_OVER'; tableSummary: TableSummaryRow[]; hands: number; hostName: string }
+  | { type: 'GAME_OVER'; tableSummary: TableSummaryRow[]; hands: number; hostName: string; sessionClaims?: SessionClaim[] }
   // Educational pause: a new Pung/Chi this round shows a lesson and freezes play.
   | { type: 'LESSON'; lesson: Lesson; until: number }
   | { type: 'RESUME_GAME' }

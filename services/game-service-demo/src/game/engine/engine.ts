@@ -4,7 +4,7 @@
 // See GAME_MECHANIC_BRIEF.md §4–5.
 import { canWin, getLegalClaims, shuffle, type Claim, type Meld } from './rules';
 import { getDnaCard, type DnaCard, type TileInstance } from './tiles';
-import type { TableSummaryRow } from './protocol';
+import type { SessionClaim, TableSummaryRow } from './protocol';
 
 const TILE_BASES = [
   'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9',
@@ -56,7 +56,7 @@ export interface EngineEvents {
   claim_resolved: { winnerSeat: number; claimType: 'PUNG' | 'CHI'; meld: string[]; dna: DnaCard | null };
   hu: { winnerSeat: number; pairName: string; hand: TileInstance[]; melds: Meld[]; winType: string };
   draw: { message: string };
-  game_over: { tableSummary: TableSummaryRow[]; hands: number };
+  game_over: { tableSummary: TableSummaryRow[]; hands: number; sessionClaims: SessionClaim[] };
 }
 
 type EngineHandler<K extends keyof EngineEvents> = (payload: EngineEvents[K]) => void;
@@ -76,6 +76,7 @@ export interface EngineSnapshot {
   lastDiscardSeat: number | null;
   claimWindow: ClaimWindow | null;
   handScores: Record<number, number>;
+  sessionClaims: SessionClaim[];
 }
 
 export class GameEngine {
@@ -94,6 +95,9 @@ export class GameEngine {
   private claimTimer: ReturnType<typeof setTimeout> | null = null;
   private handlers: { [K in keyof EngineEvents]?: EngineHandler<K> } = {};
   private handScores: Record<number, number> = {};
+  // Every Pung/Chi claimed across the whole session (persists across hands; seeds
+  // the end-of-game review). Not cleared in startHand, only on a fresh engine.
+  sessionClaims: SessionClaim[] = [];
 
   // Optional gate: after an educational claim the room can hold progression (the
   // learning pause) and call resume() when the timer elapses or is overridden.
@@ -319,6 +323,7 @@ export class GameEngine {
       meldInstances.push(discardTile);
       this.hands[seat] = newHand;
       this.melds[seat].push({ type: 'pung', tiles: [discardBase, discardBase, discardBase], instanceIds: meldInstances });
+      this.sessionClaims.push({ claimType: 'PUNG', bases: [discardBase, discardBase, discardBase], seat });
 
       this.emit('claim_resolved', {
         winnerSeat: seat,
@@ -347,6 +352,7 @@ export class GameEngine {
     }
     this.hands[seat] = newHand;
     this.melds[seat].push({ type: 'chi', tiles: chiTiles, instanceIds: meldInstances });
+    this.sessionClaims.push({ claimType: 'CHI', bases: [...chiTiles], seat });
 
     this.emit('claim_resolved', { winnerSeat: seat, claimType: 'CHI', meld: chiTiles, dna: getDnaCard(discardBase) });
     this.continueOrPause({ claimType: 'CHI', meld: chiTiles, winnerSeat: seat }, () => this.afterClaimDiscard(seat));
@@ -415,7 +421,7 @@ export class GameEngine {
       pairName: s.pairName,
       wins: this.handScores[s.seat] || 0,
     }));
-    this.emit('game_over', { tableSummary, hands: this.handNumber });
+    this.emit('game_over', { tableSummary, hands: this.handNumber, sessionClaims: this.sessionClaims });
   }
 
   /** JSON-serializable snapshot of all game data (timers/handlers excluded). */
@@ -434,6 +440,7 @@ export class GameEngine {
       lastDiscardSeat: this.lastDiscardSeat,
       claimWindow: this.claimWindow,
       handScores: this.handScores,
+      sessionClaims: this.sessionClaims,
     };
   }
 
@@ -455,6 +462,7 @@ export class GameEngine {
     engine.lastDiscardSeat = s.lastDiscardSeat;
     engine.claimWindow = s.claimWindow;
     engine.handScores = s.handScores;
+    engine.sessionClaims = s.sessionClaims ?? [];
     return engine;
   }
 

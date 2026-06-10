@@ -1,13 +1,16 @@
 "use client";
+import { useEffect, useState } from "react";
 import Tile from "./Tile";
+import CaseStudyView from "./CaseStudyView";
 import type { Lesson } from "@/lib/education";
-import { cn } from "@/lib/ui";
+import { getScamCase, type ScamCase } from "@/lib/caseStudies";
+import { cn, btnGold, btnGhost } from "@/lib/ui";
 
 export type DisplayMode = "ipad" | "projector";
 
 interface ScamCardProps {
   lesson: Lesson | null;
-  /** Host presses continue to resume — there is no timer. */
+  /** Host presses continue to resume the game. There is no timer. */
   onOverride: () => void;
   /** ipad = readable from both sides (mirrored); projector = one big card. */
   mode?: DisplayMode;
@@ -40,19 +43,19 @@ function LessonBody({ lesson, big }: { lesson: Lesson; big?: boolean }) {
           <div className={cn("font-black tracking-tight", tone.heading, big ? "text-4xl mb-2" : "text-xl mb-1")}>
             {lesson.heading}
           </div>
-          <p className={cn("leading-snug text-cream", big ? "text-2xl" : "text-[1rem]")}>{lesson.lesson}</p>
+          <p className={cn("leading-snug text-cream/75", big ? "text-lg" : "text-[0.85rem]")}>{lesson.lesson}</p>
         </div>
       </div>
       {lesson.tool && (
         <div
           className={cn(
-            "rounded-lg font-semibold flex items-start gap-2",
+            "rounded-xl font-bold flex flex-col gap-1",
             tone.chip,
-            big ? "mt-4 px-5 py-3 text-xl" : "mt-2.5 px-3.5 py-2 text-[0.95rem]",
+            big ? "mt-4 px-6 py-4" : "mt-3 px-4 py-3",
           )}
         >
-          <span className="shrink-0">🛡️ What to do:</span>
-          <span>{lesson.tool}</span>
+          <span className={cn("uppercase tracking-[1.5px] opacity-80", big ? "text-sm" : "text-[0.68rem]")}>🛡️ What to do</span>
+          <span className={cn("leading-snug", big ? "text-2xl" : "text-[1.1rem]")}>{lesson.tool}</span>
         </div>
       )}
       {(lesson.stat || lesson.src) && (
@@ -65,37 +68,93 @@ function LessonBody({ lesson, big }: { lesson: Lesson; big?: boolean }) {
   );
 }
 
-export default function ScamCard({ lesson, onOverride, mode = "ipad" }: ScamCardProps) {
-  if (!lesson) return null;
+// Stage 2: the real-life Singapore case study. The teaching content the younger
+// player walks the elder through (also mirrored to each phone).
+function CaseBody({ lesson, scamCase, big }: { lesson: Lesson; scamCase: ScamCase; big?: boolean }) {
+  const tone = TONE[lesson.tone];
+  return (
+    <div
+      className={cn(
+        "bg-[linear-gradient(135deg,#14110c_0%,#241a10_100%)] border-2 rounded-2xl shadow-[0_10px_50px_rgba(0,0,0,0.6)] overflow-y-auto",
+        tone.border,
+        big ? "w-[min(1000px,92vw)] max-h-[78vh] px-10 py-8" : "w-[min(680px,82vw)] max-h-[72vh] px-6 py-5",
+      )}
+    >
+      <div className={cn("flex items-center mb-4", big ? "gap-4" : "gap-3")}>
+        <div className={cn("flex shrink-0", big ? "gap-1.5" : "gap-1")}>
+          {lesson.tiles.slice(0, 3).map((t, i) => (
+            <Tile key={`${t}-${i}`} tileId={t} size={big ? "l" : "m"} />
+          ))}
+        </div>
+        <div className={cn("font-black tracking-tight", tone.heading, big ? "text-3xl" : "text-xl")}>{lesson.heading}</div>
+      </div>
+      <CaseStudyView scamCase={scamCase} big={big} />
+    </div>
+  );
+}
 
-  const controls = (
+// Built on the shared lib/ui buttons, with overlay-specific overrides (pill
+// shape, smaller sizing, stronger shadow). Later utilities win the conflict.
+const BTN_GOLD = cn(btnGold, "rounded-full px-5 py-2 text-sm shadow-[0_2px_10px_rgba(0,0,0,0.4)]");
+const BTN_GHOST = cn(btnGhost, "rounded-full border-[rgba(251,191,36,0.4)] px-4 py-2 font-semibold");
+
+export default function ScamCard({ lesson, onOverride, mode = "ipad" }: ScamCardProps) {
+  const [stage, setStage] = useState<"lesson" | "case">("lesson");
+  // Every new lesson starts at stage 1.
+  useEffect(() => setStage("lesson"), [lesson]);
+
+  if (!lesson) return null;
+  const scamCase = getScamCase(lesson.tiles);
+  const showCase = stage === "case" && scamCase != null;
+
+  const controls = showCase ? (
+    <div className="flex items-center gap-4">
+      <button onClick={() => setStage("lesson")} className={BTN_GHOST}>
+        ◀ Back
+      </button>
+      <button onClick={onOverride} className={BTN_GOLD}>
+        Got it, continue ▶
+      </button>
+    </div>
+  ) : (
     <div className="flex items-center gap-4">
       <span className="text-sand text-sm">Game paused</span>
-      <button
-        onClick={onOverride}
-        className="bg-gradient-to-br from-gold to-gold-deep text-ink rounded-full px-5 py-2 text-sm font-extrabold shadow-[0_2px_10px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-transform cursor-pointer"
-      >
-        Got it — continue ▶
-      </button>
+      {scamCase ? (
+        <button onClick={() => setStage("case")} className={BTN_GOLD}>
+          See real example ▶
+        </button>
+      ) : (
+        <button onClick={onOverride} className={BTN_GOLD}>
+          Got it, continue ▶
+        </button>
+      )}
     </div>
   );
 
+  const body = (big?: boolean) =>
+    showCase ? <CaseBody lesson={lesson} scamCase={scamCase} big={big} /> : <LessonBody lesson={lesson} big={big} />;
+
   return (
-    <div className="absolute inset-0 z-[160] flex flex-col items-center justify-center gap-3 bg-black/60 px-4 animate-fade-in">
-      {mode === "ipad" ? (
+    <div className="absolute inset-0 z-[160] flex flex-col items-center justify-center gap-3 bg-black/60 px-4 py-6 overflow-y-auto animate-fade-in">
+      {mode === "projector" ? (
         <>
-          {/* Mirrored so players on the far side of the table read it the right way up. */}
-          <div className="rotate-180">
-            <LessonBody lesson={lesson} />
-          </div>
+          {/* Projector: one big card facing one direction. */}
+          {body(true)}
           {controls}
-          <LessonBody lesson={lesson} />
+        </>
+      ) : showCase ? (
+        <>
+          {/* The case study is long, so show one upright card on the iPad. The
+              same content is mirrored to each phone for close-up reading. */}
+          {body()}
+          {controls}
         </>
       ) : (
         <>
-          {/* Projector: one big card facing one direction. */}
-          <LessonBody lesson={lesson} big />
+          {/* Stage 1 is short: mirror it so players on the far side read it upright. */}
+          <div className="rotate-180">{body()}</div>
           {controls}
+          {body()}
         </>
       )}
     </div>

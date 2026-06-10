@@ -9,6 +9,9 @@ interface TileRackProps {
   size?: TileSize;
   selectedTile?: string | null;
   onSelect?: (tile: string) => void;
+  /** Fires on every tile tap regardless of `disabled` (used for tap-to-explain).
+   *  Takes priority over `onSelect` when provided. */
+  onTileTap?: (tile: string) => void;
   disabled?: boolean;
   highlight?: string[];
   /** Single horizontal row (scrolls) instead of wrapping — used for the phone hand. */
@@ -26,6 +29,7 @@ export default function TileRack({
   size = "m",
   selectedTile,
   onSelect,
+  onTileTap,
   disabled = false,
   highlight = [],
   wrap = true,
@@ -69,7 +73,7 @@ export default function TileRack({
           selected={selectedTile === t}
           glow={highlight.includes(t)}
           dim={disabled}
-          onClick={disabled || !onSelect ? undefined : () => onSelect(t)}
+          onClick={onTileTap ? () => onTileTap(t) : disabled || !onSelect ? undefined : () => onSelect(t)}
         />
       ))}
     </div>

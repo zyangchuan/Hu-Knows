@@ -54,6 +54,13 @@ export interface TableSummaryRow {
   wins: number;
 }
 
+/** One Pung or Chi claimed during the session (drives the end-of-game review). */
+export interface SessionClaim {
+  claimType: "PUNG" | "CHI";
+  bases: string[];
+  seat: number;
+}
+
 // ── Messages: client → server ─────────────────────────────────────────────────
 export type ClientMessage =
   | { type: "CREATE_ROOM" }
@@ -106,7 +113,7 @@ export type ServerMessage =
       winType: string;
     }
   | { type: "DRAW"; message: string }
-  | { type: "GAME_OVER"; tableSummary: TableSummaryRow[]; hands: number; hostName: string }
+  | { type: "GAME_OVER"; tableSummary: TableSummaryRow[]; hands: number; hostName: string; sessionClaims?: SessionClaim[] }
   // Educational pause: a new Pung/Chi this round shows a lesson and freezes play.
   | { type: "LESSON"; lesson: Lesson; until: number }
   | { type: "RESUME_GAME" }

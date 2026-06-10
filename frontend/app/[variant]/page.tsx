@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useGameSocket } from "@/lib/useGameSocket";
 import FullscreenButton from "@/components/FullscreenButton";
+import Tile from "@/components/Tile";
 import { getClientName, setClientName } from "@/lib/net/clientIdentity";
 import { fetchProfile, type UserRole } from "@/lib/auth";
 import { SEAT_NAMES } from "@/lib/tiles";
@@ -161,7 +162,7 @@ export default function Lobby() {
       <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 safe-pad", feltRadial)}>
         <div className="text-center">
           <h1 className="text-[2.8rem] font-black text-gold tracking-tight">胡 Hu Knows?</h1>
-          <p className="text-sand mt-1">Room created — waiting for players</p>
+          <p className="text-sand mt-1">Room created, waiting for players</p>
         </div>
 
         <div className="text-center">
@@ -239,7 +240,7 @@ export default function Lobby() {
             {SEAT_NAMES[mySeat]}
           </div>
           <p className="text-center text-cream">
-            You are <strong>{pairName || "Anonymous"}</strong> — Seat {SEAT_NAMES[mySeat]}
+            You are <strong>{pairName || "Anonymous"}</strong>, Seat {SEAT_NAMES[mySeat]}
           </p>
           <div className="w-8 h-8 border-[3px] border-[rgba(251,191,36,0.2)] border-t-gold rounded-full animate-spin-fast" />
           <p className="text-sand text-[0.875rem]">Waiting for the coordinator to start…</p>
@@ -287,7 +288,10 @@ export default function Lobby() {
 
         {(variant === "demo" || myRole === "volunteer") && (
         <div className="flex-1 min-w-[280px] max-w-[360px] bg-white/[0.04] border border-[rgba(251,191,36,0.2)] rounded-2xl p-7 flex flex-col gap-4">
-          <h2 className="text-cream text-xl font-bold">🎴 Join Game</h2>
+          <h2 className="text-cream text-xl font-bold flex items-center gap-2">
+            <Tile tileId="A1" size="s" />
+            Join Game
+          </h2>
           <p className="text-sand text-[0.875rem] leading-relaxed">Enter the 4-character room code shown on the shared display.</p>
           <input
             className={cn(inputField, "text-[1.6rem] font-extrabold tracking-[8px] text-center uppercase")}

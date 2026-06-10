@@ -8,10 +8,16 @@ import MeldGroup from "@/components/MeldGroup";
 import ActionZone from "@/components/ActionZone";
 import FullscreenButton from "@/components/FullscreenButton";
 import Tile from "@/components/Tile";
+import TileInfoCard from "@/components/TileInfoCard";
+import ReviewQuiz from "@/components/ReviewQuiz";
+import CaseStudyView from "@/components/CaseStudyView";
+import PauseCheck from "@/components/PauseCheck";
 import { SEAT_NAMES } from "@/lib/tiles";
+import { getScamCase, getScamCaseBase } from "@/lib/caseStudies";
+import type { Lesson } from "@/lib/education";
 import { downloadCertsPdf } from "@/lib/cert";
 import { sessionViaHours, todayLabel } from "@/lib/via";
-import type { Claim, ClaimType, ClaimWindowState, GameState, Meld, ServerMessage, TableSummaryRow } from "@/lib/types";
+import type { Claim, ClaimType, ClaimWindowState, GameState, Meld, ServerMessage, SessionClaim, TableSummaryRow } from "@/lib/types";
 import { btnGold, btnGhost, cn, feltRadial } from "@/lib/ui";
 
 type Banner = { text: string; type: "info" | "gold" | "green" | "red" } | null;
@@ -52,8 +58,12 @@ export default function PhoneView() {
   const [legalClaims, setLegalClaims] = useState<Claim[]>([]);
   const [claimWindow, setClaimWindow] = useState<ClaimWindowState | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [pauseStep, setPauseStep] = useState<"teach" | "check">("teach");
   const [huWinner, setHuWinner] = useState<{ pairName: string } | null>(null);
-  const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[]; hands: number; hostName: string } | null>(null);
+  const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[]; hands: number; hostName: string; sessionClaims: SessionClaim[] } | null>(null);
+  const [reviewDone, setReviewDone] = useState(false);
+  const [infoTile, setInfoTile] = useState<string | null>(null);
 
   const mySeatRef = useRef<number | null>(null);
   useEffect(() => {
@@ -95,7 +105,7 @@ export default function PhoneView() {
         setMustDiscard(msg.mustDiscard);
         setLegalClaims(msg.legalClaims || []);
         setSelectedTile(null);
-        setBanner(msg.canWin ? { text: "You can win! Press 胡 HU!", type: "gold" } : { text: "Your turn — tap a tile, then Throw", type: "info" });
+        setBanner(msg.canWin ? { text: "You can win! Press 胡 HU!", type: "gold" } : { text: "Your turn: tap a tile, then Throw", type: "info" });
         break;
       case "CLAIM_WINDOW_OPEN": {
         setClaimWindow({ bySeat: msg.bySeat, closesAt: msg.closesAt, legalBySeat: msg.legalBySeat });
@@ -120,19 +130,30 @@ export default function PhoneView() {
         setBanner(msg.winnerSeat === seat ? { text: "🎉 You win this hand!", type: "gold" } : { text: `${msg.pairName} wins!`, type: "info" });
         break;
       case "DRAW":
-        setBanner({ text: "Draw — wall exhausted", type: "info" });
+        setBanner({ text: "Draw: wall exhausted", type: "info" });
         setIsMyTurn(false);
         setClaimWindow(null);
         break;
       case "GAME_OVER":
-        setGameOver({ tableSummary: msg.tableSummary, hands: msg.hands, hostName: msg.hostName });
+        setGameOver({ tableSummary: msg.tableSummary, hands: msg.hands, hostName: msg.hostName, sessionClaims: msg.sessionClaims ?? [] });
         setIsMyTurn(false);
         setClaimWindow(null);
         break;
       case "LESSON":
-        setBanner({ text: "📖 Scam lesson on the table — look up! Resumes when the host continues.", type: "gold" });
+        // A case study mirrors to the phone so the younger player can teach the
+        // elder up close, then test together. Tiles without one fall back to the
+        // "look up" banner.
+        if (getScamCase(msg.lesson.tiles)) {
+          setInfoTile(null);
+          setLesson(msg.lesson);
+          setPauseStep("teach");
+        } else {
+          setBanner({ text: "📖 Scam lesson on the table, look up! Resumes when the host continues.", type: "gold" });
+        }
         break;
       case "RESUME_GAME":
+        setLesson(null);
+        setPauseStep("teach");
         setBanner(null);
         break;
       case "ERROR":
@@ -217,6 +238,16 @@ export default function PhoneView() {
 
   // ── Game over → demo certificate or app dashboard handoff ───────────────────
   if (gameOver) {
+    // Demo: a short scam-review on each phone (built from the session's Pung/Chi
+    // claims) before the certificate, to check what players actually learned.
+    if (variant === "demo" && !reviewDone && gameOver.sessionClaims.length > 0) {
+      return (
+        <Shell>
+          <Header right={pairName || "Participant"} />
+          <ReviewQuiz claims={gameOver.sessionClaims} onDone={() => setReviewDone(true)} />
+        </Shell>
+      );
+    }
     const sorted = [...gameOver.tableSummary].sort((a, b) => b.wins - a.wins);
     const myName = pairName || "Participant";
     const myHours = sessionViaHours(gameOver.hands);
@@ -369,10 +400,10 @@ export default function PhoneView() {
             size="l"
             fit
             selectedTile={selectedTile}
-            onSelect={(t) => {
-              if (!isMyTurn || !mustDiscard) return;
-              if (selectedTile === t) handleDiscard(t);
-              else setSelectedTile(t);
+            onTileTap={(t) => {
+              // Tap any tile to learn it; the popup also offers Throw on your turn.
+              setInfoTile(t);
+              if (isMyTurn && mustDiscard && !canWin) setSelectedTile(t);
             }}
             disabled={!isMyTurn || canWin}
           />
@@ -397,6 +428,59 @@ export default function PhoneView() {
           onPass={handlePass}
         />
       </div>
+
+      {infoTile && (
+        <TileInfoCard
+          base={infoTile.split(":")[0]}
+          canDiscard={isMyTurn && mustDiscard && !canWin}
+          onDiscard={() => {
+            handleDiscard(infoTile);
+            setInfoTile(null);
+          }}
+          onClose={() => setInfoTile(null)}
+        />
+      )}
+
+      {/* Educational pause: the real-life case study is mirrored from the table so
+          the younger player can teach the elder, then they test together. Dismisses
+          on RESUME_GAME. */}
+      {lesson &&
+        (() => {
+          const scamCase = getScamCase(lesson.tiles);
+          const caseBase = getScamCaseBase(lesson.tiles);
+          if (!scamCase || !caseBase) return null;
+          return (
+            <div className="fixed inset-0 z-[180] flex items-end justify-center bg-black/60 animate-fade-in">
+              <div className="w-full max-w-[440px] max-h-[88dvh] overflow-y-auto bg-[linear-gradient(135deg,#14110c_0%,#241a10_100%)] border-2 border-gold rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.6)] px-5 pt-4 pb-6 safe-pb">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[0.68rem] uppercase tracking-[1.5px] font-bold text-gold/80">
+                    {pauseStep === "teach" ? "Teach this together" : "Now test together"}
+                  </div>
+                  {pauseStep === "check" && (
+                    <button
+                      onClick={() => setPauseStep("teach")}
+                      className="text-sand text-[0.75rem] underline hover:text-cream shrink-0"
+                    >
+                      ← Back to the example
+                    </button>
+                  )}
+                </div>
+                <div className="text-cream text-[1.2rem] font-black leading-tight mt-0.5 mb-3">{lesson.heading}</div>
+                {pauseStep === "teach" ? (
+                  <>
+                    <CaseStudyView scamCase={scamCase} />
+                    <button onClick={() => setPauseStep("check")} className={cn(btnGold, "w-full mt-4")}>
+                      Now test together →
+                    </button>
+                  </>
+                ) : (
+                  <PauseCheck base={caseBase} scamCase={scamCase} />
+                )}
+                <div className="mt-4 text-center text-sand text-[0.78rem]">Game resumes when the host presses continue.</div>
+              </div>
+            </div>
+          );
+        })()}
     </Shell>
   );
 }

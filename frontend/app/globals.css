@@ -142,7 +142,7 @@ html, body {
   min-height: 100vh;
   background: var(--color-felt-deep);
   color: var(--color-cream);
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Source Serif 4", Georgia, serif;
   overscroll-behavior: none;
   /* Kill the mobile double-tap-zoom + 300ms tap delay that swallowed taps,
      and the grey tap-highlight flash — makes tile taps feel instant. */

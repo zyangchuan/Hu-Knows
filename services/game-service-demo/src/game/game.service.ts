@@ -48,6 +48,10 @@ interface RoomSnapshot {
 }
 
 const ROOM_TTL_SECONDS = 7200; // 2h GC backstop
+// Safety net: if the host never presses continue past an educational pause (e.g.
+// the iPad is closed for good), auto-resume after this long so the table is never
+// permanently soft-locked. Generous, so it never pre-empts a host still teaching.
+const LESSON_AUTO_RESUME_MS = 300000; // 5 min
 const roomKey = (code: string) => `game:room:${code}`;
 const clientKey = (clientId: string) => `game:client:${clientId}`;
 
@@ -87,6 +91,11 @@ class Room {
   // Lessons shown this hand (dedup) + the active learning-pause state.
   private shownLessons = new Set<string>();
   private pendingResume: (() => void) | null = null;
+  // The LESSON message currently being held (so a reconnecting host/phone can be
+  // re-shown it), plus a safety-net timer that auto-resumes if the host never
+  // continues. Both are live-only (not serialized) and cleared on resume.
+  private pendingLesson: Extract<ServerMessage, { type: 'LESSON' }> | null = null;
+  private lessonResumeTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     code: string,
@@ -236,16 +245,44 @@ class Room {
     }
     this.shownLessons.add(key);
     this.pendingResume = resume;
-    // No timer — the pause holds until the host presses continue (RESUME).
-    this.broadcastAll({ type: 'LESSON', lesson: buildLesson(info.claimType, info.meld), until: 0 });
+    // Hold the pause until the host presses continue (RESUME). Remember the LESSON
+    // so a host/phone that reconnects mid-pause can be re-shown it deterministically,
+    // and arm a safety-net timer so a vanished host can never lock the table forever.
+    const lessonMsg: Extract<ServerMessage, { type: 'LESSON' }> = {
+      type: 'LESSON',
+      lesson: buildLesson(info.claimType, info.meld),
+      until: 0,
+    };
+    this.pendingLesson = lessonMsg;
+    if (this.lessonResumeTimer) clearTimeout(this.lessonResumeTimer);
+    this.lessonResumeTimer = setTimeout(() => this.resumeFromLesson(), LESSON_AUTO_RESUME_MS);
+    this.broadcastAll(lessonMsg);
   }
 
   resumeFromLesson(): void {
     if (!this.pendingResume) return;
     const r = this.pendingResume;
     this.pendingResume = null;
+    this.pendingLesson = null;
+    if (this.lessonResumeTimer) {
+      clearTimeout(this.lessonResumeTimer);
+      this.lessonResumeTimer = null;
+    }
     this.broadcastAll({ type: 'RESUME_GAME' });
     r();
+  }
+
+  /** Re-emit the currently held lesson (if any) to a single reconnecting socket. */
+  replayLessonTo(clientId: string): void {
+    if (this.pendingLesson) this.send(clientId, this.pendingLesson);
+  }
+
+  /** Clear the safety-net auto-resume timer (used when the room is torn down). */
+  clearLessonTimer(): void {
+    if (this.lessonResumeTimer) {
+      clearTimeout(this.lessonResumeTimer);
+      this.lessonResumeTimer = null;
+    }
   }
 
   /** Host pressed continue: resume a learning pause, else advance the hand. */
@@ -394,6 +431,7 @@ export class GameService {
   }
 
   private deleteRoom(code: string): void {
+    this.rooms.get(code)?.clearLessonTimer();
     this.rooms.delete(code);
     this.redis.main.del(roomKey(code)).catch(() => undefined);
   }
@@ -436,6 +474,9 @@ export class GameService {
     this.bindClient(socketId, room, 'host');
     room.broadcastLobby();
     if (room.engine) this.send(socketId, { type: 'STATE_UPDATE', ...room.engine.getState() });
+    // Re-show a held educational lesson so a host that refreshed/dropped mid-pause
+    // gets its Continue button back (otherwise the table is soft-locked).
+    room.replayLessonTo(socketId);
   }
 
   /**
@@ -474,6 +515,9 @@ export class GameService {
     } else if (room.engine) {
       this.send(socketId, { type: 'STATE_UPDATE', ...room.engine.getState() });
     }
+    // Re-show a held educational lesson so a phone that reconnects mid-pause
+    // re-opens its teaching sheet.
+    room.replayLessonTo(socketId);
   }
 
   /** Called by a gateway when a socket disconnects. */

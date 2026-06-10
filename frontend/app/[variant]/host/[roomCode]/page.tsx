@@ -249,8 +249,8 @@ export default function IPadView() {
             <p className="text-sand text-center text-sm">
               {variant === "demo"
                 ? "Each player can also download their own certificate on their phone. "
-                : "VIA hours have been credited to each volunteer — they can download their certificate from their own dashboard. "}
-              Every tile taught a scam defence — call <strong className="text-gold">1799</strong> (ScamShield Helpline, 24/7) if you
+                : "VIA hours have been credited to each volunteer, so they can download their certificate from their own dashboard. "}
+              Every tile taught a scam defence, so call <strong className="text-gold">1799</strong> (ScamShield Helpline, 24/7) if you
               suspect a scam.
             </p>
 
@@ -266,7 +266,7 @@ export default function IPadView() {
 
             <p className="text-[0.7rem] text-sand/40 text-center pb-2">
               {variant === "demo"
-                ? "Demo mode — certificates are generated on-device from the names players entered. In the full version, hosts sign in and VIA hours are tracked per volunteer."
+                ? "Demo mode: certificates are generated on-device from the names players entered. In the full version, hosts sign in and VIA hours are tracked per volunteer."
                 : "VIA hours are tracked per volunteer and credited automatically."}
             </p>
           </div>
@@ -321,7 +321,7 @@ export default function IPadView() {
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 z-[200] animate-fade-in px-4">
           <div className="text-[4.5rem] font-black text-gold drop-shadow-[0_0_40px_rgba(251,191,36,0.6)] animate-hu-bounce">胡!</div>
           <div className="text-2xl text-cream mt-1 font-bold">{huWinner.pairName} wins!</div>
-          <div className="text-sand text-sm mt-1">Winning hand — 3 sets + a pair</div>
+          <div className="text-sand text-sm mt-1">Winning hand: 3 sets + a pair</div>
           <div className="mt-5 flex gap-3 flex-wrap justify-center items-end max-w-[94vw]">
             {huWinner.melds.map((m, i) => (
               <WinGroup key={`claimed-${i}`} label="Claimed" delay={i}>
@@ -353,7 +353,7 @@ export default function IPadView() {
       {!huWinner && gameState?.phase === "hand_over" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 z-[200] animate-fade-in px-4">
           <div className="text-[3rem]">🀫</div>
-          <div className="text-2xl text-cream font-bold">Draw — no winner this hand</div>
+          <div className="text-2xl text-cream font-bold">Draw: no winner this hand</div>
           <button className={cn(btnGold, "mt-3")} onClick={() => send({ type: "RESUME" })}>Continue ▶</button>
         </div>
       )}
@@ -409,7 +409,7 @@ export default function IPadView() {
             <div className="w-full h-full flex flex-col items-center justify-center gap-3">
               <div className="text-[4rem]">🀄</div>
               <p className="text-sand text-lg">
-                {seats.length === 0 ? "No players yet — share the room code" : `${seats.length}/4 players joined`}
+                {seats.length === 0 ? "No players yet, so share the room code" : `${seats.length}/4 players joined`}
               </p>
               {seats.map((s) => (
                 <span key={s.seat} className="text-cream text-base">{SEAT_NAMES[s.seat]} · {s.pairName}{s.isBot ? " 🤖" : ""}</span>
@@ -433,7 +433,7 @@ export default function IPadView() {
         <div className="bg-black/40 border-t border-[rgba(251,191,36,0.15)] botbar flex justify-center text-[0.8rem] text-sand">
           <span>
             <span className="text-gold font-bold">{SEAT_NAMES[gameState.turnSeat]} {getSeat(gameState.turnSeat).pairName}</span>
-            {gameState.phase === "claim_window" ? "'s discard — claim window open" : "'s turn"}
+            {gameState.phase === "claim_window" ? "'s discard: claim window open" : "'s turn"}
           </span>
         </div>
       )}

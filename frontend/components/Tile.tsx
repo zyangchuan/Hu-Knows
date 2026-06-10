@@ -19,7 +19,7 @@ interface TileProps {
   onClick?: () => void;
 }
 
-// Bigger tiles than the original — readable on real iPad/phone screens.
+// Bigger tiles than the original so it is readable on real iPad/phone screens.
 const SIZE: Record<TileSize, { box: string; px: number; label: string; num: string }> = {
   s: { box: "w-[36px] h-[48px] p-[2px_1px] rounded-[4px]", px: 24, label: "hidden", num: "text-[10px]" },
   m: { box: "w-[52px] h-[70px] p-[3px_2px] rounded-[5px]", px: 32, label: "text-[7px]", num: "text-[11px]" },
@@ -66,12 +66,12 @@ export default function Tile({ tileId, size = "m", selected, glow, dim, back, on
   const suit = SUIT[data.suit];
 
   // Custom-icon mode: the SVGs in /tiles/icons are transparent, icon-only, on the
-  // same 200×270 canvas the tile uses — so we render the icon full-bleed and keep
+  // same 200×270 canvas the tile uses so we render the icon full-bleed and keep
   // our own crisp corner number + bottom word over it.
   if (USE_TILE_IMAGES) {
     return (
       <div
-        title={`${data.label} — ${data.tip}`}
+        title={`${data.label}: ${data.tip}`}
         onClick={onClick}
         className={cn(
           BASE,
@@ -120,7 +120,7 @@ export default function Tile({ tileId, size = "m", selected, glow, dim, back, on
 
   return (
     <div
-      title={`${data.label} — ${data.tip}`}
+      title={`${data.label}: ${data.tip}`}
       onClick={onClick}
       className={cn(
         BASE,

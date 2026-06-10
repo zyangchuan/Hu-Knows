@@ -16,8 +16,8 @@ export interface Lesson {
 }
 
 function defaultTool(tone: LessonTone): string {
-  if (tone === 'redflag') return "Pause — don't act on the spot. Verify first, and call 1799 if unsure.";
-  if (tone === 'shield') return 'Keep doing this every single time — good habits beat scammers.';
+  if (tone === 'redflag') return "Pause and don't act on the spot. Verify first, and call 1799 if unsure.";
+  if (tone === 'shield') return 'Keep doing this every single time because good habits beat scammers.';
   return 'Share this with someone you trust today.';
 }
 
@@ -40,10 +40,10 @@ export function buildLesson(claimType: 'PUNG' | 'CHI', meld: string[]): Lesson {
 
     const lesson =
       tone === 'redflag'
-        ? `${d.tip}. Seeing the same trick three times is no accident — scammers reuse what works. Spotting the pattern early is how you stop them before any money moves.`
+        ? `${d.tip}. The same trick three times is no accident.`
         : tone === 'shield'
-          ? `${d.tip}. Repeating a safe habit until it's second nature is exactly what keeps you and your savings protected.`
-          : `${d.tip}. This one action protects you and everyone you tell.`;
+          ? `${d.tip}. Make it a habit.`
+          : `${d.tip}.`;
 
     return { tone, heading, tiles: bases, lesson, tool: dna?.tool ?? defaultTool(tone), stat: dna?.stat, src: dna?.src };
   }
@@ -56,18 +56,18 @@ export function buildLesson(claimType: 'PUNG' | 'CHI', meld: string[]): Lesson {
   const dna = dnaBase ? DNA_CARDS[dnaBase] : undefined;
 
   const flagPart = flags.length
-    ? `🚩 The traps — ${flags.map((d) => `${d.label} (${d.tip})`).join(' and ')}.`
+    ? `🚩 The traps: ${flags.map((d) => `${d.label} (${d.tip})`).join(' and ')}.`
     : '';
   const guardPart = guards.length
-    ? `🛡️ Your move — ${guards.map((d) => `${d.label} (${d.tip})`).join('; ')}.`
+    ? `🛡️ Your move: ${guards.map((d) => `${d.label} (${d.tip})`).join('; ')}.`
     : '';
 
   return {
     tone: 'connect',
-    heading: '🔗 Spot the trap — make the move',
+    heading: '🔗 Spot the trap and make the move',
     tiles: bases,
-    lesson: `${flagPart} ${guardPart} A scam's warning sign and the way to protect yourself sit side by side on purpose — spot the red flag, then reach for the defence right next to it.`.trim(),
-    tool: dna?.tool ?? "Slow down and verify before doing anything — call 1799 if you're unsure.",
+    lesson: `${flagPart} ${guardPart}`.trim(),
+    tool: dna?.tool ?? "Slow down and verify before doing anything, call 1799 if you're unsure.",
     stat: dna?.stat,
     src: dna?.src,
   };
