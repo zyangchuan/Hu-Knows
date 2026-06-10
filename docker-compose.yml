@@ -57,6 +57,18 @@ services:
       - "8000"
     restart: unless-stopped
 
+  # GUIDED-LEARN game-service — another independent in-memory copy. Adds a host
+  # how-to-play gate before the game and a preset near-win deal so a round ends in
+  # ~3 turns. Served on /api/game-service-demo-learn; used only by the /demo-learn
+  # flow.
+  game-service-demo-learn:
+    container_name: game-service-demo-learn
+    build:
+      context: ./services/game-service-demo-learn
+    expose:
+      - "8000"
+    restart: unless-stopped
+
   via-log-service:
     container_name: via-log-service
     build:
@@ -85,6 +97,7 @@ services:
       - user-service
       - game-service
       - game-service-demo
+      - game-service-demo-learn
       - via-log-service
       - docs
     restart: unless-stopped

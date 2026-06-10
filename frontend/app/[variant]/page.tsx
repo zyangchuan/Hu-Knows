@@ -4,6 +4,8 @@ import { useParams, useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useGameSocket } from "@/lib/useGameSocket";
 import FullscreenButton from "@/components/FullscreenButton";
+import LearnTutorial from "@/components/LearnTutorial";
+import LearnBadge from "@/components/LearnBadge";
 import Tile from "@/components/Tile";
 import { getClientName, setClientName } from "@/lib/net/clientIdentity";
 import { fetchProfile, type UserRole } from "@/lib/auth";
@@ -19,9 +21,15 @@ export default function Lobby() {
   const router = useRouter();
   // URL segment: "demo" (in-memory game-service-demo, no login) or "app" (full backend).
   const { variant: rawVariant } = useParams<{ variant: string }>();
-  const variant: "demo" | "app" = rawVariant === "app" ? "app" : "demo";
-  const gameVariant = variant === "app" ? "prod" : "demo"; // transport/socket path
+  const variant: "demo" | "app" | "demo-learn" =
+    rawVariant === "app" ? "app" : rawVariant === "demo-learn" ? "demo-learn" : "demo";
+  // transport/socket path: app → prod, demo-learn → guided-learn backend, else demo.
+  const gameVariant = variant === "app" ? "prod" : variant === "demo-learn" ? "demo-learn" : "demo";
+  const isLearn = variant === "demo-learn";
   const [role, setRole] = useState<Role | null>(null);
+  // Guided-learn variant: the host walks through the how-to-play tutorial when
+  // pressing Start, and the game only begins once it's finished.
+  const [showTutorial, setShowTutorial] = useState(false);
   // First message to send once the chosen-namespace connection is live.
   const [pendingAction, setPendingAction] = useState<ClientMessage | null>(null);
   // Room code put in the connection handshake — set when joining an existing room
@@ -162,6 +170,7 @@ export default function Lobby() {
       <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 safe-pad", feltRadial)}>
         <div className="text-center">
           <h1 className="text-[2.8rem] font-black text-gold tracking-tight">胡 Hu Knows?</h1>
+          {isLearn && <LearnBadge className="mt-2" />}
           <p className="text-sand mt-1">Room created, waiting for players</p>
         </div>
 
@@ -218,11 +227,29 @@ export default function Lobby() {
               );
             })}
           </div>
-          <button className={cn(btnGold, seats.length === 0 && "opacity-50")} disabled={seats.length === 0} onClick={() => send({ type: "START_GAME" })}>
+          <button
+            className={cn(btnGold, seats.length === 0 && "opacity-50")}
+            disabled={seats.length === 0}
+            onClick={() => (variant === "demo-learn" ? setShowTutorial(true) : send({ type: "START_GAME" }))}
+          >
             Start Game →
           </button>
           <p className="text-[0.75rem] text-sand text-center">Empty seats are filled with bots automatically.</p>
         </div>
+
+        {/* Guided-learn gate: the host goes through the tutorial first; the game
+            starts only when it's finished. Closing returns to the lobby. */}
+        {showTutorial && (
+          <div className="fixed inset-0 z-[200]">
+            <LearnTutorial
+              onComplete={() => {
+                setShowTutorial(false);
+                send({ type: "START_GAME" });
+              }}
+              onClose={() => setShowTutorial(false)}
+            />
+          </div>
+        )}
       </div>
     );
   }
@@ -233,6 +260,7 @@ export default function Lobby() {
       <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 safe-pad", feltRadial)}>
         <div className="text-center">
           <h1 className="text-[2.8rem] font-black text-gold tracking-tight">胡 Hu Knows?</h1>
+          {isLearn && <LearnBadge className="mt-2" />}
           <p className="text-sand mt-1">Joined as seat {SEAT_NAMES[mySeat]}</p>
         </div>
         <div className="w-full max-w-[420px] bg-white/[0.04] border border-[rgba(251,191,36,0.2)] rounded-2xl p-7 flex flex-col items-center gap-4">
@@ -251,21 +279,20 @@ export default function Lobby() {
 
   // ── Main lobby ──────────────────────────────────────────────────────────────
   return (
-    <div className={cn("min-h-screen flex flex-col items-center justify-center gap-5 safe-pad", feltRadial)}>
+    <div className={cn("relative min-h-screen flex flex-col items-center justify-center gap-5 safe-pad", feltRadial)}>
+      <FullscreenButton className="absolute top-4 right-4 z-10" />
       <div className="text-center">
-        <h1 className="text-[2.8rem] font-black text-gold tracking-tight">胡 Hu Knows or Don&apos;t Know</h1>
+        <h1 className="text-[2.8rem] font-black text-gold tracking-tight">胡 Hu Knows</h1>
+        {isLearn && <LearnBadge className="mt-2" />}
         <p className="text-sand mt-1">Anti-scam Mahjong · Learn · Play · Protect Singapore</p>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap justify-center">
-        <button
-          onClick={() => router.push(`/${variant}/learn`)}
-          className="rounded-full border border-[rgba(251,191,36,0.4)] text-gold hover:text-cream hover:border-gold px-4 py-1.5 text-[0.85rem] font-semibold transition-colors cursor-pointer bg-gold/10"
-        >
-          📖 How to play
-        </button>
-        <FullscreenButton />
-      </div>
+      <button
+        onClick={() => router.push(isLearn ? "/demo" : "/demo-learn")}
+        className="rounded-full border-2 border-[rgba(251,191,36,0.5)] text-gold hover:text-cream hover:border-gold px-8 py-3.5 text-[1.15rem] font-bold transition-colors cursor-pointer bg-gold/10"
+      >
+        {isLearn ? "🀄 Play the full game" : "📖 Learn how to play"}
+      </button>
 
       {role !== null && !connected && reconnecting && (
         <div className="bg-[rgba(185,28,28,0.15)] border border-scam-red rounded-lg px-4 py-2 text-[0.85rem] text-[#f87171]">
@@ -278,7 +305,7 @@ export default function Lobby() {
       ) : (
       <div className="flex gap-5 flex-wrap justify-center w-full max-w-[760px]">
         {/* Organiser hosts the table; volunteer joins to play. Demo shows both. */}
-        {(variant === "demo" || myRole === "organiser") && (
+        {(variant !== "app" || myRole === "organiser") && (
         <div className="flex-1 min-w-[280px] max-w-[360px] bg-white/[0.04] border border-[rgba(251,191,36,0.2)] rounded-2xl p-7 flex flex-col gap-4">
           <h2 className="text-cream text-xl font-bold">📱 Create Table</h2>
           <p className="text-sand text-[0.875rem] leading-relaxed">Set up the shared display. Place this device at the centre of the table.</p>
@@ -286,7 +313,7 @@ export default function Lobby() {
         </div>
         )}
 
-        {(variant === "demo" || myRole === "volunteer") && (
+        {(variant !== "app" || myRole === "volunteer") && (
         <div className="flex-1 min-w-[280px] max-w-[360px] bg-white/[0.04] border border-[rgba(251,191,36,0.2)] rounded-2xl p-7 flex flex-col gap-4">
           <h2 className="text-cream text-xl font-bold flex items-center gap-2">
             <Tile tileId="A1" size="s" />

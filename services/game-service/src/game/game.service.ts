@@ -656,10 +656,13 @@ export class GameService {
   private joinRoom(room: Room, clientId: string, pairName: string): void {
     const stable = this.stableId(clientId);
     const supabaseUserId = this.supabaseUserIdOf(clientId);
-    // Reclaim an existing seat by stable client id (preferred) or pair name.
-    const existing = room.seats.find(
-      (s) => !s.isBot && ((stable && s.clientId === stable) || s.pairName === pairName),
-    );
+    // Reclaim an existing seat ONLY by stable client id (the per-device id). Do
+    // not match by pair name: two players who leave the name blank are both
+    // "Anonymous", so a name match would let a second joiner hijack the first's
+    // seat. A genuinely new device falls through to the first empty seat below.
+    const existing = stable
+      ? room.seats.find((s) => !s.isBot && s.clientId === stable)
+      : undefined;
     if (existing) {
       existing.connected = true;
       existing.pairName = pairName;
@@ -683,11 +686,10 @@ export class GameService {
     }
 
     const taken = room.seats.map((s) => s.seat);
-    // Seat preference: South (1) first, so a single demo player sits at the
-    // bottom of the iPad table facing the judge; the rest fill in around.
-    const SEAT_ORDER = [1, 0, 2, 3];
+    // Assign the first immediate empty seat in natural order (0..3) so each joiner
+    // fills a distinct seat and never displaces someone already seated.
     let seat: number | null = null;
-    for (const i of SEAT_ORDER) {
+    for (let i = 0; i < 4; i++) {
       if (!taken.includes(i)) {
         seat = i;
         break;

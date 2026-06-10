@@ -59,6 +59,14 @@ services:
       - ./services/game-service-demo/src:/app/src
       - /app/node_modules
 
+  game-service-demo-learn:
+    build:
+      target: dev
+    # No env_file: in-memory, auth off (same as the demo service).
+    volumes:
+      - ./services/game-service-demo-learn/src:/app/src
+      - /app/node_modules
+
   via-log-service:
     build:
       target: dev

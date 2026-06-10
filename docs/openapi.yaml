@@ -119,6 +119,37 @@ tags:
       are public. Claim priority is **HU > PUNG > CHI**; a Pung/Hu jumps the turn
       to the claimer. See the `schemas` section below for payload shapes
       (`GameState`, `Claim`, `Meld`, `WsClientMessage`, `WsServerMessage`).
+  - name: game-service-demo-learn
+    description: |
+      **Guided learn game** — an in-memory, no-auth copy of `game-service` used by
+      the `/demo-learn` flow. Same Socket.IO message protocol as **game-service**
+      (namespaces `/host` and `/play`), but served on path
+      `/api/game-service-demo-learn/socket.io` and **without authentication**
+      (anyone can host or join, like the open demo).
+
+      Two behavioural differences from the standard game:
+
+      - **Host how-to-play gate.** When the host presses *Start Game*, the host
+        device first walks through the interactive how-to-play tutorial; the round
+        only begins (the server is sent `START_GAME`) once the host finishes it.
+      - **Scripted first hand (Pung → Chi → Hu).** The opening round deals
+        normal-looking VARIED hands (not a random wall), but each seat is allowed to
+        discard only ONE tile on its turn — the tile that sets up the next player's
+        claim. The phone greys out every other tile and the engine rejects any other
+        discard (`YOUR_TURN.forcedDiscard` carries the allowed tile base). The chain
+        is: seat 0 discards WE → seat 1 **Pung**s; seat 1 discards B5 → seat 2
+        **Chi**s B4-B5-B6; seat 2 discards A8 → seat 3 **Hu**s (A8 completes its
+        pair onto three pre-claimed melds). Each Pung/Chi fires its scam lesson. The
+        join order maps to roles (seat 0 → 1 → 2 → 3); a bot in any seat plays the
+        same scripted move, so the round completes with any number of human players.
+        A win still requires **at least 3 claimed melds** (seat 3's pre-claimed melds
+        satisfy this), so nobody wins off a bare hand. This is a teaching sandbox:
+        the 4-copies-per-tile rule is not enforced (the rigged hands/melds may repeat
+        a tile across seats). Later hands fall back to a normal random deal.
+
+      See the **game-service** tag for the full message/handshake protocol and the
+      `GameState` / `Claim` / `Meld` / `WsClientMessage` / `WsServerMessage`
+      schemas, which apply unchanged here.
 
 paths:
   /api/via-log-service/health:
@@ -172,6 +203,21 @@ paths:
                 properties:
                   status: { type: string, example: ok }
                   service: { type: string, example: game-service }
+
+  /api/game-service-demo-learn/health:
+    get:
+      tags: [game-service-demo-learn]
+      summary: Liveness check
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: game-service-demo-learn }
 
   /api/user-service/health:
     get:

@@ -22,6 +22,10 @@ const nextConfig: NextConfig = {
         source: "/api/game-service-demo/:path*",
         destination: `${dockerProxy}/api/game-service-demo/:path*`,
       },
+      {
+        source: "/api/game-service-demo-learn/:path*",
+        destination: `${dockerProxy}/api/game-service-demo-learn/:path*`,
+      },
     ];
   },
 };

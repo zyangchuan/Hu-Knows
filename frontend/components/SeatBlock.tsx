@@ -10,7 +10,6 @@ interface SeatBlockProps {
   handCount?: number;
   melds?: Meld[];
   isActive?: boolean;
-  isBot?: boolean;
   size?: TileSize;
 }
 
@@ -20,7 +19,6 @@ export default function SeatBlock({
   handCount = 0,
   melds = [],
   isActive,
-  isBot,
   size = "m",
 }: SeatBlockProps) {
   const backs = Array.from({ length: Math.max(0, handCount) });
@@ -37,7 +35,6 @@ export default function SeatBlock({
           )}
         >
           {pairName || `Seat ${seat}`}
-          {isBot && " 🤖"}
         </span>
       </div>
 

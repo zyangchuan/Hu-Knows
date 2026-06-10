@@ -88,6 +88,9 @@ export type ServerMessage =
       canWin: boolean;
       mustDiscard: boolean;
       legalClaims: Claim[];
+      // LEARN: the one tile base this seat may discard this turn (the phone greys
+      // out every other tile), or null/absent in a normal round.
+      forcedDiscard?: string | null;
     }
   | {
       type: "CLAIM_WINDOW_OPEN";

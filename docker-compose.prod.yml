@@ -29,6 +29,11 @@ services:
       target: runner
     # No env_file — demo runs in-memory with host auth off.
 
+  game-service-demo-learn:
+    build:
+      target: runner
+    # No env_file — guided-learn runs in-memory with host auth off.
+
   via-log-service:
     build:
       target: runner

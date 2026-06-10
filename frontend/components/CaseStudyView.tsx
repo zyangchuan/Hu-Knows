@@ -18,21 +18,6 @@ export default function CaseStudyView({ scamCase, big }: CaseStudyViewProps) {
 
   return (
     <div className={cn("flex flex-col", gap)}>
-      {scamCase.image && (
-        <figure className="m-0">
-          <img
-            src={scamCase.image.src}
-            alt={scamCase.image.caption ?? ""}
-            className={cn("w-full rounded-xl object-cover", big ? "max-h-72" : "max-h-44")}
-          />
-          {scamCase.image.caption && (
-            <figcaption className={cn("text-sand mt-1", big ? "text-sm" : "text-[0.72rem]")}>
-              {scamCase.image.caption}
-            </figcaption>
-          )}
-        </figure>
-      )}
-
       <section>
         <div className={cn("uppercase tracking-[1.5px] font-bold text-gold/80", heading)}>What this scam is</div>
         <p className={cn("leading-snug text-cream/85 mt-1", body)}>{scamCase.whatItIs}</p>

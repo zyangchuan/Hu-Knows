@@ -173,20 +173,27 @@ class Room {
       this.broadcastState();
     });
 
-    engine.on('your_turn', ({ seat, hand, drawnTile, canWin, mustDiscard, legalClaims }) => {
+    engine.on('your_turn', ({ seat, hand, drawnTile, canWin, mustDiscard, legalClaims, forcedDiscard }) => {
       const seatInfo = this.seats.find((s) => s.seat === seat);
       if (seatInfo?.isBot) {
         setTimeout(
           () => {
             if (engine.phase !== 'playing' || engine.turnSeat !== seat) return;
             const result = botTurn({ seat, hand, drawnTile, canWin, legalClaims });
-            if (result.action === 'HU') engine.declareHu(seat);
-            else engine.discard(seat, result.tile);
+            if (result.action === 'HU') {
+              engine.declareHu(seat);
+            } else {
+              // LEARN: in the guided round the bot must play the one scripted tile.
+              const tile = forcedDiscard
+                ? engine.hands[seat].find((t) => t.split(':')[0] === forcedDiscard) ?? result.tile
+                : result.tile;
+              engine.discard(seat, tile);
+            }
           },
           800 + Math.random() * 600,
         );
       } else {
-        this.sendToSeat(seat, { type: 'YOUR_TURN', hand, drawnTile, canWin, mustDiscard, legalClaims });
+        this.sendToSeat(seat, { type: 'YOUR_TURN', hand, drawnTile, canWin, mustDiscard, legalClaims, forcedDiscard });
       }
       this.broadcastState();
     });
@@ -638,8 +645,10 @@ export class GameService {
     }
 
     const taken = room.seats.map((s) => s.seat);
-    // Assign the first immediate empty seat in natural order (0..3) so each joiner
-    // fills a distinct seat and never displaces someone already seated.
+    // Real players take the first empty seat (0-3); any seat still empty at start
+    // is filled by a bot. In the scripted first hand the join order maps to roles:
+    // seat 0 pungs, seat 1 chis, seat 2 hus, seat 3 sits out — and a bot in any of
+    // those seats plays the same scripted move.
     let seat: number | null = null;
     for (let i = 0; i < 4; i++) {
       if (!taken.includes(i)) {

@@ -5,6 +5,7 @@ import { useGameSocket } from "@/lib/useGameSocket";
 import SeatBlock from "@/components/SeatBlock";
 import DiscardPool from "@/components/DiscardPool";
 import ScamCard, { type DisplayMode } from "@/components/ScamCard";
+import LearnBadge from "@/components/LearnBadge";
 import Tile from "@/components/Tile";
 import { SEAT_NAMES } from "@/lib/tiles";
 import { decomposeWin } from "@/lib/rules";
@@ -35,8 +36,12 @@ const HEADLINE = [
 export default function IPadView() {
   const { roomCode, variant: rawVariant } = useParams<{ roomCode: string; variant: string }>();
   // URL segment: "demo" (in-memory game-service-demo) or "app" (full backend).
-  const variant: "demo" | "app" = rawVariant === "app" ? "app" : "demo";
-  const gameVariant = variant === "app" ? "prod" : "demo"; // transport/socket path
+  const variant: "demo" | "app" | "demo-learn" =
+    rawVariant === "app" ? "app" : rawVariant === "demo-learn" ? "demo-learn" : "demo";
+  // transport/socket path: app → prod, demo-learn → guided-learn backend, else demo.
+  const gameVariant = variant === "app" ? "prod" : variant === "demo-learn" ? "demo-learn" : "demo";
+  // Demo and demo-learn share the open-flow UI (certificate handoff, no VIA/auth).
+  const isDemoLike = variant !== "app";
   const router = useRouter();
 
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -63,11 +68,21 @@ export default function IPadView() {
   const handleMessage = useCallback((msg: ServerMessage) => {
     switch (msg.type) {
       case "LOBBY_UPDATE":
-        setGameState((prev) =>
-          prev
-            ? { ...prev, seats: msg.seats }
-            : { phase: "lobby", seats: msg.seats, discardPile: [], wallCount: 60, handNumber: 0, turnSeat: 0, lastDiscard: null, lastDiscardSeat: null, claimWindow: null },
-        );
+        setGameState((prev) => {
+          if (!prev) {
+            return { phase: "lobby", seats: msg.seats, discardPile: [], wallCount: 60, handNumber: 0, turnSeat: 0, lastDiscard: null, lastDiscardSeat: null, claimWindow: null };
+          }
+          // LOBBY_UPDATE carries seat identity (name / connected / bot) but NOT the
+          // live per-seat handCount or melds. Merge over the current seats so an
+          // unrelated phone connect/disconnect mid-game (which triggers a lobby
+          // broadcast with no STATE_UPDATE to follow during a lesson pause) doesn't
+          // blank out every hand on the table.
+          const seats = msg.seats.map((s) => {
+            const old = prev.seats.find((p) => p.seat === s.seat);
+            return old ? { ...old, ...s } : s;
+          });
+          return { ...prev, seats };
+        });
         break;
       case "GAME_STARTED":
         setHuWinner(null);
@@ -197,7 +212,7 @@ export default function IPadView() {
                 <button className={cn(btnGhost, "!py-2 !px-4 text-sm")} onClick={() => router.push(`/${variant}`)}>
                   + New session
                 </button>
-                {variant === "demo" && records.length > 0 && (
+                {isDemoLike && records.length > 0 && (
                   <button className={cn(btnGold, "!py-2.5 !px-4 text-sm")} onClick={downloadAll}>
                     ⬇️ Download all (PDF)
                   </button>
@@ -219,7 +234,7 @@ export default function IPadView() {
                 <span>Seat</span>
                 <span>Wins</span>
                 <span>VIA hours</span>
-                <span className="text-right">{variant === "demo" ? "Certificate" : "VIA"}</span>
+                <span className="text-right">{isDemoLike ? "Certificate" : "VIA"}</span>
               </div>
               {records.length === 0 && (
                 <div className="px-4 py-8 text-center text-sand/60">No human players in this session.</div>
@@ -234,7 +249,7 @@ export default function IPadView() {
                   <span className="text-sand">{r.wins}</span>
                   <span className="text-gold font-bold">{r.hours}h</span>
                   <span className="flex justify-end">
-                    {variant === "demo" ? (
+                    {isDemoLike ? (
                       <button onClick={() => downloadOne(r)} className={cn(btnGold, "!py-1.5 !px-3 !text-[0.75rem]")}>
                         ⬇️ PDF
                       </button>
@@ -247,7 +262,7 @@ export default function IPadView() {
             </div>
 
             <p className="text-sand text-center text-sm">
-              {variant === "demo"
+              {isDemoLike
                 ? "Each player can also download their own certificate on their phone. "
                 : "VIA hours have been credited to each volunteer, so they can download their certificate from their own dashboard. "}
               Every tile taught a scam defence, so call <strong className="text-gold">1799</strong> (ScamShield Helpline, 24/7) if you
@@ -265,7 +280,7 @@ export default function IPadView() {
             </div>
 
             <p className="text-[0.7rem] text-sand/40 text-center pb-2">
-              {variant === "demo"
+              {isDemoLike
                 ? "Demo mode: certificates are generated on-device from the names players entered. In the full version, hosts sign in and VIA hours are tracked per volunteer."
                 : "VIA hours are tracked per volunteer and credited automatically."}
             </p>
@@ -288,6 +303,7 @@ export default function IPadView() {
     <div className="h-[100dvh] flex flex-col relative overflow-hidden bg-[radial-gradient(ellipse_at_center,var(--color-felt-warm)_0%,var(--color-felt)_55%,var(--color-felt-deep)_100%)]">
       <Chrome
         roomCode={roomCode}
+        learn={variant === "demo-learn"}
         info={gameState?.handNumber ? `Hand ${gameState.handNumber}` : ""}
         reconnecting={reconnecting}
         right={isPlaying ? `⬛ ${gameState!.wallCount} tiles left` : "Waiting for players…"}
@@ -345,7 +361,10 @@ export default function IPadView() {
                 </div>
               ))}
           </div>
-          <button className={cn(btnGold, "mt-7")} onClick={() => send({ type: "RESUME" })}>Continue ▶</button>
+          <div className="mt-7 flex flex-wrap gap-3 justify-center">
+            <button className={btnGold} onClick={() => send({ type: "RESUME" })}>Continue ▶</button>
+            <button className={btnGhost} onClick={() => send({ type: "END_GAME" })}>Exit game</button>
+          </div>
         </div>
       )}
 
@@ -412,7 +431,7 @@ export default function IPadView() {
                 {seats.length === 0 ? "No players yet, so share the room code" : `${seats.length}/4 players joined`}
               </p>
               {seats.map((s) => (
-                <span key={s.seat} className="text-cream text-base">{SEAT_NAMES[s.seat]} · {s.pairName}{s.isBot ? " 🤖" : ""}</span>
+                <span key={s.seat} className="text-cream text-base">{SEAT_NAMES[s.seat]} · {s.pairName}</span>
               ))}
             </div>
           )}
@@ -512,12 +531,14 @@ function WinGroup({ label, children, delay = 0, gold }: { label: string; childre
 
 function Chrome({
   roomCode,
+  learn,
   info,
   reconnecting,
   right,
   toggle,
 }: {
   roomCode: string;
+  learn?: boolean;
   info: string;
   reconnecting: boolean;
   right: string;
@@ -525,7 +546,10 @@ function Chrome({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 appbar bg-black/35 border-b border-[rgba(251,191,36,0.12)] shrink-0">
-      <span className="text-[1.1rem] font-black text-gold shrink-0">胡 Hu Knows or Don&apos;t Know</span>
+      <span className="flex items-center gap-2 shrink-0">
+        <span className="text-[1.1rem] font-black text-gold">胡 Hu Knows</span>
+        {learn && <LearnBadge />}
+      </span>
       <span className="text-[0.85rem] text-sand truncate">
         Room <strong className="text-gold tracking-[2px]">{roomCode}</strong>
         {info ? ` · ${info}` : ""}

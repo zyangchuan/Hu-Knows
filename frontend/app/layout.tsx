@@ -4,7 +4,7 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "胡 Hu Knows or Don't Know",
+  title: "胡 Hu Knows",
   description:
     "Anti-scam Mahjong game for Singapore — learn scam defence while playing!",
   // "Add to Home Screen" runs fullscreen (no Safari address/menu bar).

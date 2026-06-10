@@ -25,11 +25,14 @@ export interface GameClient {
 export type ClientRole = "host" | "player";
 
 /** Which game-service backend to talk to. */
-export type GameVariant = "demo" | "prod";
+export type GameVariant = "demo" | "prod" | "demo-learn";
 
 const BASE_PATH: Record<GameVariant, string> = {
   demo: "/api/game-service-demo/socket.io",
   prod: "/api/game-service/socket.io",
+  // Guided learn game: a copy of demo with a host how-to-play gate and a preset
+  // near-win deal (see services/game-service-demo-learn).
+  "demo-learn": "/api/game-service-demo-learn/socket.io",
 };
 
 function socketOrigin(): string {

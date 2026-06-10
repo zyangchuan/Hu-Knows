@@ -9,7 +9,7 @@ import ActionZone from "@/components/ActionZone";
 import FullscreenButton from "@/components/FullscreenButton";
 import Tile from "@/components/Tile";
 import TileInfoCard from "@/components/TileInfoCard";
-import ReviewQuiz from "@/components/ReviewQuiz";
+import LearnBadge from "@/components/LearnBadge";
 import CaseStudyView from "@/components/CaseStudyView";
 import PauseCheck from "@/components/PauseCheck";
 import { SEAT_NAMES } from "@/lib/tiles";
@@ -17,7 +17,7 @@ import { getScamCase, getScamCaseBase } from "@/lib/caseStudies";
 import type { Lesson } from "@/lib/education";
 import { downloadCertsPdf } from "@/lib/cert";
 import { sessionViaHours, todayLabel } from "@/lib/via";
-import type { Claim, ClaimType, ClaimWindowState, GameState, Meld, ServerMessage, SessionClaim, TableSummaryRow } from "@/lib/types";
+import type { Claim, ClaimType, ClaimWindowState, GameState, Meld, ServerMessage, TableSummaryRow } from "@/lib/types";
 import { btnGold, btnGhost, cn, feltRadial } from "@/lib/ui";
 
 type Banner = { text: string; type: "info" | "gold" | "green" | "red" } | null;
@@ -27,10 +27,13 @@ type Banner = { text: string; type: "info" | "gold" | "green" | "red" } | null;
 function Shell({ children }: { children: React.ReactNode }) {
   return <div className={cn("min-h-[100dvh] flex flex-col", feltRadial)}>{children}</div>;
 }
-function Header({ right }: { right?: React.ReactNode }) {
+function Header({ right, learn }: { right?: React.ReactNode; learn?: boolean }) {
   return (
     <div className="flex items-center justify-between appbar bg-black/30 border-b border-[rgba(251,191,36,0.1)]">
-      <span className="text-base font-black text-gold">胡 Hu Knows</span>
+      <span className="flex items-center gap-2">
+        <span className="text-base font-black text-gold">胡 Hu Knows</span>
+        {learn && <LearnBadge />}
+      </span>
       <span className="text-[0.8rem] text-sand">{right}</span>
     </div>
   );
@@ -39,8 +42,11 @@ function Header({ right }: { right?: React.ReactNode }) {
 export default function PhoneView() {
   const { roomCode, variant: rawVariant } = useParams<{ roomCode: string; variant: string }>();
   // URL segment: "demo" (in-memory game-service-demo) or "app" (full backend).
-  const variant: "demo" | "app" = rawVariant === "app" ? "app" : "demo";
-  const gameVariant = variant === "app" ? "prod" : "demo"; // transport/socket path
+  const variant: "demo" | "app" | "demo-learn" =
+    rawVariant === "app" ? "app" : rawVariant === "demo-learn" ? "demo-learn" : "demo";
+  // transport/socket path: app → prod, demo-learn → guided-learn backend, else demo.
+  const gameVariant = variant === "app" ? "prod" : variant === "demo-learn" ? "demo-learn" : "demo";
+  const isLearn = variant === "demo-learn";
   const router = useRouter();
 
   const [joined, setJoined] = useState(false);
@@ -55,14 +61,15 @@ export default function PhoneView() {
   const [isMyTurn, setIsMyTurn] = useState(false);
   const [canWin, setCanWin] = useState(false);
   const [mustDiscard, setMustDiscard] = useState(false);
+  // LEARN: the one tile base this player may discard this turn (others greyed out).
+  const [forcedDiscard, setForcedDiscard] = useState<string | null>(null);
   const [legalClaims, setLegalClaims] = useState<Claim[]>([]);
   const [claimWindow, setClaimWindow] = useState<ClaimWindowState | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [pauseStep, setPauseStep] = useState<"teach" | "check">("teach");
   const [huWinner, setHuWinner] = useState<{ pairName: string } | null>(null);
-  const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[]; hands: number; hostName: string; sessionClaims: SessionClaim[] } | null>(null);
-  const [reviewDone, setReviewDone] = useState(false);
+  const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[]; hands: number; hostName: string } | null>(null);
   const [infoTile, setInfoTile] = useState<string | null>(null);
 
   const mySeatRef = useRef<number | null>(null);
@@ -103,13 +110,21 @@ export default function PhoneView() {
         setIsMyTurn(true);
         setCanWin(msg.canWin);
         setMustDiscard(msg.mustDiscard);
+        setForcedDiscard(msg.forcedDiscard ?? null);
         setLegalClaims(msg.legalClaims || []);
         setSelectedTile(null);
-        setBanner(msg.canWin ? { text: "You can win! Press 胡 HU!", type: "gold" } : { text: "Your turn: tap a tile, then Throw", type: "info" });
+        setBanner(
+          msg.canWin
+            ? { text: "You can win! Press 胡 HU!", type: "gold" }
+            : msg.forcedDiscard
+              ? { text: "Throw the highlighted tile", type: "gold" }
+              : { text: "Your turn: tap a tile, then Throw", type: "info" },
+        );
         break;
       case "CLAIM_WINDOW_OPEN": {
         setClaimWindow({ bySeat: msg.bySeat, closesAt: msg.closesAt, legalBySeat: msg.legalBySeat });
         setIsMyTurn(false);
+        setForcedDiscard(null);
         const myLegal = (seat !== null && msg.legalBySeat?.[seat]) || [];
         if (myLegal.length > 0) setBanner({ text: `Claim available: ${myLegal.map((c) => c.type).join(" / ")}`, type: "gold" });
         else setBanner(null);
@@ -135,7 +150,7 @@ export default function PhoneView() {
         setClaimWindow(null);
         break;
       case "GAME_OVER":
-        setGameOver({ tableSummary: msg.tableSummary, hands: msg.hands, hostName: msg.hostName, sessionClaims: msg.sessionClaims ?? [] });
+        setGameOver({ tableSummary: msg.tableSummary, hands: msg.hands, hostName: msg.hostName });
         setIsMyTurn(false);
         setClaimWindow(null);
         break;
@@ -190,7 +205,9 @@ export default function PhoneView() {
     send({ type: "DISCARD", tile });
     setMyHand((prev) => prev.filter((t) => t !== tile)); // instant feedback — tile leaves the rack now
     setSelectedTile(null);
+    setInfoTile(null); // close the tap-to-explain card once the tile is thrown
     setIsMyTurn(false);
+    setForcedDiscard(null);
     setBanner({ text: "Tile thrown ✓", type: "green" });
   };
   const handleHu = () => {
@@ -213,7 +230,7 @@ export default function PhoneView() {
   if (!joined) {
     return (
       <Shell>
-        <Header right={<>Room: {roomCode}</>} />
+        <Header right={<>Room: {roomCode}</>} learn={isLearn} />
         <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
           <div className="text-center">
             <div className="text-[2rem] mb-2">🎴</div>
@@ -238,16 +255,6 @@ export default function PhoneView() {
 
   // ── Game over → demo certificate or app dashboard handoff ───────────────────
   if (gameOver) {
-    // Demo: a short scam-review on each phone (built from the session's Pung/Chi
-    // claims) before the certificate, to check what players actually learned.
-    if (variant === "demo" && !reviewDone && gameOver.sessionClaims.length > 0) {
-      return (
-        <Shell>
-          <Header right={pairName || "Participant"} />
-          <ReviewQuiz claims={gameOver.sessionClaims} onDone={() => setReviewDone(true)} />
-        </Shell>
-      );
-    }
     const sorted = [...gameOver.tableSummary].sort((a, b) => b.wins - a.wins);
     const myName = pairName || "Participant";
     const myHours = sessionViaHours(gameOver.hands);
@@ -261,7 +268,7 @@ export default function PhoneView() {
       );
     return (
       <Shell>
-        <Header right={myName} />
+        <Header right={myName} learn={isLearn} />
         <div className="flex-1 flex flex-col items-center gap-4 pt-6 px-4 overflow-y-auto safe-pb">
           <div className="text-[2.6rem]">🎓</div>
           <h2 className="text-gold text-[1.3rem] font-black text-center">Thanks for playing!</h2>
@@ -271,7 +278,7 @@ export default function PhoneView() {
             <span className="text-[0.7rem] uppercase tracking-[2px] text-sand">📜 VIA Contribution</span>
             <span className="text-cream text-[1.2rem] font-extrabold mt-1">{myName}</span>
             <span className="text-gold text-[2rem] font-black leading-none my-1">
-              {variant === "demo" ? (
+              {variant !== "app" ? (
                 <>{myHours} <span className="text-[1rem]">VIA hour{myHours === 1 ? "" : "s"}</span></>
               ) : (
                 <span className="text-[1.5rem]">VIA credited</span>
@@ -279,7 +286,7 @@ export default function PhoneView() {
             </span>
             <span className="text-sand text-[0.78rem]">{myWins} win{myWins === 1 ? "" : "s"} · {gameOver.hands} hand{gameOver.hands === 1 ? "" : "s"} played</span>
             <span className="text-sand/70 text-[0.72rem] mt-1">Issued by {hostName} · {dateLabel}</span>
-            {variant === "demo" ? (
+            {variant !== "app" ? (
               <button className={cn(btnGold, "w-full mt-3")} onClick={downloadMine}>
                 ⬇️ Download my certificate (PDF)
               </button>
@@ -322,7 +329,7 @@ export default function PhoneView() {
   if (!gameState || gameState.phase === "idle" || gameState.phase === "lobby") {
     return (
       <Shell>
-        <Header right={mySeat !== null ? `${pairName} · ${SEAT_NAMES[mySeat]}` : pairName} />
+        <Header right={mySeat !== null ? `${pairName} · ${SEAT_NAMES[mySeat]}` : pairName} learn={isLearn} />
         <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
           <div className="text-[2rem]">🎴</div>
           <h2 className="text-gold text-[1.3rem]">Waiting for game to start</h2>
@@ -384,6 +391,10 @@ export default function PhoneView() {
       {/* The hand is the entire focus — one big horizontal row, centred.
           safe-x keeps the tiles clear of the Dynamic Island/notch in landscape. */}
       <div className="flex-1 flex flex-col justify-center gap-2 safe-x min-h-0">
+        {/* Tap-to-explain: shown inline above the hand, so the tiles stay visible. */}
+        {infoTile && (
+          <TileInfoCard base={infoTile.split(":")[0]} onClose={() => setInfoTile(null)} />
+        )}
         {myMelds.length > 0 && (
           <div className="flex gap-1.5 justify-center flex-wrap shrink-0">
             {myMelds.map((m, i) => <MeldGroup key={i} meld={m} size="s" />)}
@@ -400,10 +411,14 @@ export default function PhoneView() {
             size="l"
             fit
             selectedTile={selectedTile}
+            lockBase={isMyTurn && mustDiscard && !canWin ? forcedDiscard : null}
             onTileTap={(t) => {
-              // Tap any tile to learn it; the popup also offers Throw on your turn.
+              // Tap any tile to learn it; on your turn it also selects for Throw.
               setInfoTile(t);
-              if (isMyTurn && mustDiscard && !canWin) setSelectedTile(t);
+              // LEARN: in the guided round only the highlighted tile is selectable.
+              if (isMyTurn && mustDiscard && !canWin && (!forcedDiscard || t.split(":")[0] === forcedDiscard)) {
+                setSelectedTile(t);
+              }
             }}
             disabled={!isMyTurn || canWin}
           />
@@ -428,18 +443,6 @@ export default function PhoneView() {
           onPass={handlePass}
         />
       </div>
-
-      {infoTile && (
-        <TileInfoCard
-          base={infoTile.split(":")[0]}
-          canDiscard={isMyTurn && mustDiscard && !canWin}
-          onDiscard={() => {
-            handleDiscard(infoTile);
-            setInfoTile(null);
-          }}
-          onClose={() => setInfoTile(null)}
-        />
-      )}
 
       {/* Educational pause: the real-life case study is mirrored from the table so
           the younger player can teach the elder, then they test together. Dismisses

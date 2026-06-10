@@ -14,6 +14,9 @@ interface TileRackProps {
   onTileTap?: (tile: string) => void;
   disabled?: boolean;
   highlight?: string[];
+  /** Guided learn round: when set, only tiles of this base are interactive; every
+   *  other tile is dimmed (greyed out) and the allowed tile glows. */
+  lockBase?: string | null;
   /** Single horizontal row (scrolls) instead of wrapping — used for the phone hand. */
   wrap?: boolean;
   /**
@@ -32,6 +35,7 @@ export default function TileRack({
   onTileTap,
   disabled = false,
   highlight = [],
+  lockBase = null,
   wrap = true,
   fit = false,
 }: TileRackProps) {
@@ -65,17 +69,21 @@ export default function TileRack({
       )}
       style={fit ? { transform: `scale(${scale})`, transformOrigin: "center bottom" } : undefined}
     >
-      {sorted.map((t) => (
-        <Tile
-          key={t}
-          tileId={t}
-          size={size}
-          selected={selectedTile === t}
-          glow={highlight.includes(t)}
-          dim={disabled}
-          onClick={onTileTap ? () => onTileTap(t) : disabled || !onSelect ? undefined : () => onSelect(t)}
-        />
-      ))}
+      {sorted.map((t) => {
+        const locked = lockBase != null && t.split(":")[0] !== lockBase;
+        const allowed = lockBase != null && t.split(":")[0] === lockBase;
+        return (
+          <Tile
+            key={t}
+            tileId={t}
+            size={size}
+            selected={selectedTile === t}
+            glow={highlight.includes(t) || allowed}
+            dim={disabled || locked}
+            onClick={onTileTap ? () => onTileTap(t) : disabled || !onSelect ? undefined : () => onSelect(t)}
+          />
+        );
+      })}
     </div>
   );
 
