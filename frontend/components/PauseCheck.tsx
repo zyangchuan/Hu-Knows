@@ -10,11 +10,14 @@ import { btnGold, btnGhost, cn } from "@/lib/ui";
 interface PauseCheckProps {
   base: string;
   scamCase: ScamCase;
+  /** Called when the quiz advances to its next question, so the sheet can scroll
+   *  back to the top. */
+  onStepChange?: () => void;
 }
 
 type Spot = "scam" | "safe";
 
-export default function PauseCheck({ base, scamCase }: PauseCheckProps) {
+export default function PauseCheck({ base, scamCase, onStepChange }: PauseCheckProps) {
   const data = TILE_DATA[base];
   const isAction = data?.type === "action";
   const correctSpot: Spot = data?.type === "redflag" ? "scam" : "safe";
@@ -88,7 +91,13 @@ export default function PauseCheck({ base, scamCase }: PauseCheckProps) {
                   ))}
                 </ul>
               </div>
-              <button className={cn(btnGold, "w-full")} onClick={() => setStep("fix")}>
+              <button
+                className={cn(btnGold, "w-full")}
+                onClick={() => {
+                  setStep("fix");
+                  onStepChange?.();
+                }}
+              >
                 Next: what should you do? →
               </button>
             </div>

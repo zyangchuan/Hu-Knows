@@ -479,7 +479,11 @@ export default function PhoneView() {
                     </button>
                   </>
                 ) : (
-                  <PauseCheck base={caseBase} scamCase={scamCase} />
+                  <PauseCheck
+                    base={caseBase}
+                    scamCase={scamCase}
+                    onStepChange={() => quizSheetRef.current?.scrollTo({ top: 0 })}
+                  />
                 )}
                 <div className="mt-4 text-center text-sand text-[0.78rem]">Game resumes when the host presses continue.</div>
               </div>
