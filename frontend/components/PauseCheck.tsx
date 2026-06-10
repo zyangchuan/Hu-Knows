@@ -29,10 +29,6 @@ export default function PauseCheck({ base, scamCase }: PauseCheckProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-[0.68rem] uppercase tracking-[2px] text-sand">
-        Your turn · step {step === "spot" ? 1 : 2} of 2
-      </div>
-
       {/* The real Singapore case, restated as the thing to judge. */}
       <p className="text-cream/85 text-[0.9rem] leading-snug italic rounded-xl bg-black/25 px-4 py-3">
         &ldquo;{scamCase.example}&rdquo;

@@ -8,7 +8,6 @@ import MeldGroup from "@/components/MeldGroup";
 import ActionZone from "@/components/ActionZone";
 import FullscreenButton from "@/components/FullscreenButton";
 import Tile from "@/components/Tile";
-import TileInfoCard from "@/components/TileInfoCard";
 import LearnBadge from "@/components/LearnBadge";
 import CaseStudyView from "@/components/CaseStudyView";
 import PauseCheck from "@/components/PauseCheck";
@@ -70,12 +69,18 @@ export default function PhoneView() {
   const [pauseStep, setPauseStep] = useState<"teach" | "check">("teach");
   const [huWinner, setHuWinner] = useState<{ pairName: string } | null>(null);
   const [gameOver, setGameOver] = useState<{ tableSummary: TableSummaryRow[]; hands: number; hostName: string } | null>(null);
-  const [infoTile, setInfoTile] = useState<string | null>(null);
 
   const mySeatRef = useRef<number | null>(null);
   useEffect(() => {
     mySeatRef.current = mySeat;
   }, [mySeat]);
+
+  // Scroll the educational pause sheet back to the top each time the quiz starts (or
+  // a new lesson opens), so the player always begins reading from the top.
+  const quizSheetRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    quizSheetRef.current?.scrollTo({ top: 0 });
+  }, [pauseStep, lesson]);
 
   const handleMessage = useCallback((msg: ServerMessage) => {
     const seat = mySeatRef.current;
@@ -159,7 +164,6 @@ export default function PhoneView() {
         // elder up close, then test together. Tiles without one fall back to the
         // "look up" banner.
         if (getScamCase(msg.lesson.tiles)) {
-          setInfoTile(null);
           setLesson(msg.lesson);
           setPauseStep("teach");
         } else {
@@ -205,7 +209,6 @@ export default function PhoneView() {
     send({ type: "DISCARD", tile });
     setMyHand((prev) => prev.filter((t) => t !== tile)); // instant feedback — tile leaves the rack now
     setSelectedTile(null);
-    setInfoTile(null); // close the tap-to-explain card once the tile is thrown
     setIsMyTurn(false);
     setForcedDiscard(null);
     setBanner({ text: "Tile thrown ✓", type: "green" });
@@ -391,10 +394,6 @@ export default function PhoneView() {
       {/* The hand is the entire focus — one big horizontal row, centred.
           safe-x keeps the tiles clear of the Dynamic Island/notch in landscape. */}
       <div className="flex-1 flex flex-col justify-center gap-2 safe-x min-h-0">
-        {/* Tap-to-explain: shown inline above the hand, so the tiles stay visible. */}
-        {infoTile && (
-          <TileInfoCard base={infoTile.split(":")[0]} onClose={() => setInfoTile(null)} />
-        )}
         {myMelds.length > 0 && (
           <div className="flex gap-1.5 justify-center flex-wrap shrink-0">
             {myMelds.map((m, i) => <MeldGroup key={i} meld={m} size="s" />)}
@@ -413,9 +412,8 @@ export default function PhoneView() {
             selectedTile={selectedTile}
             lockBase={isMyTurn && mustDiscard && !canWin ? forcedDiscard : null}
             onTileTap={(t) => {
-              // Tap any tile to learn it; on your turn it also selects for Throw.
-              setInfoTile(t);
-              // LEARN: in the guided round only the highlighted tile is selectable.
+              // Tap a tile to select it for Throw. In the guided learn round only the
+              // highlighted tile is selectable.
               if (isMyTurn && mustDiscard && !canWin && (!forcedDiscard || t.split(":")[0] === forcedDiscard)) {
                 setSelectedTile(t);
               }
@@ -454,11 +452,15 @@ export default function PhoneView() {
           if (!scamCase || !caseBase) return null;
           return (
             <div className="fixed inset-0 z-[180] flex items-end justify-center bg-black/60 animate-fade-in">
-              <div className="w-full max-w-[440px] max-h-[88dvh] overflow-y-auto bg-[linear-gradient(135deg,#14110c_0%,#241a10_100%)] border-2 border-gold rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.6)] px-5 pt-4 pb-6 safe-pb">
+              <div ref={quizSheetRef} className="w-full max-w-[440px] max-h-[88dvh] overflow-y-auto bg-[linear-gradient(135deg,#14110c_0%,#241a10_100%)] border-2 border-gold rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.6)] px-5 pt-4 pb-6 safe-pb">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-[0.68rem] uppercase tracking-[1.5px] font-bold text-gold/80">
-                    {pauseStep === "teach" ? "Teach this together" : "Now test together"}
-                  </div>
+                  {pauseStep === "teach" ? (
+                    <div className="text-[0.68rem] uppercase tracking-[1.5px] font-bold text-gold/80">
+                      Teach this together
+                    </div>
+                  ) : (
+                    <span />
+                  )}
                   {pauseStep === "check" && (
                     <button
                       onClick={() => setPauseStep("teach")}
