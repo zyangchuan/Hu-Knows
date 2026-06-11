@@ -14,6 +14,7 @@ import { buildViaRecords, todayLabel, type ViaRecord } from "@/lib/via";
 import type { Lesson } from "@/lib/education";
 import type { GameState, Meld, ServerMessage, TableSummaryRow } from "@/lib/types";
 import { btnGold, btnGhost, cn } from "@/lib/ui";
+import { playClaimSound } from "@/lib/sound";
 
 // Which screen edge each seat sits at (seat 0 East / 1 South / 2 West / 3 North).
 const SEAT_DIR: Record<number, "top" | "bottom" | "left" | "right"> = { 0: "right", 1: "bottom", 2: "left", 3: "top" };
@@ -95,6 +96,7 @@ export default function IPadView() {
       case "CLAIM_RESOLVED":
         burstId.current += 1;
         setBurst({ id: burstId.current, seat: msg.winnerSeat, claimType: msg.claimType, tiles: msg.meld });
+        playClaimSound(msg.claimType); // "PUNG" | "CHI"
         break;
       case "LESSON":
         setLesson(msg.lesson);
@@ -105,6 +107,7 @@ export default function IPadView() {
       case "HU":
         // Stays up until the host presses Continue (cleared on GAME_STARTED).
         setHuWinner({ pairName: msg.pairName, hand: msg.hand, melds: msg.melds });
+        playClaimSound("HU");
         break;
       case "GAME_OVER":
         setGameOver({ tableSummary: msg.tableSummary, hands: msg.hands, hostName: msg.hostName });
